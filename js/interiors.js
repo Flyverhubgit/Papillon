@@ -1,0 +1,218 @@
+// Papillon - rooms you can walk into: the gun shop and your flat
+import * as T from 'three';
+import { G, addBox, collide } from './world.js';
+import { makeNPC, playAnim, copKey } from './actors.js';
+import { addMarker, markers, bankMenu, vaultUse } from './shops.js';
+
+const M = (c, o) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: .85 }, o || {}));
+function box(g, w, h, d, mat, x, y, z, solid) {
+  const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  if (solid) addBox(g.position.x + x - w / 2, g.position.z + z - d / 2, g.position.x + x + w / 2, g.position.z + z + d / 2, 3);
+  return m;
+}
+const ROOMS = []; let RL = null;
+export function updateRoomLight() {
+  if (!RL) return; const p = G.player;
+  if (!G.inside) { RL.intensity = 0; return; }
+  let b = null, bd = 1e9; for (const g of ROOMS) { const d = (g.position.x - p.x) ** 2 + (g.position.z - p.z) ** 2; if (d < bd) { bd = d; b = g; } }
+  if (b) { RL.position.set(b.position.x, 2.8, b.position.z); RL.intensity = 26; }
+}
+// an empty room: floor, ceiling, four walls, a lamp; local origin is the middle of the floor
+function room(scene, cx, cz, w, d, wall, floor) {
+  const g = new T.Group(); g.position.set(cx, 0, cz); scene.add(g);
+  const H = 3.3, wm = M(wall), t = .4;
+  box(g, w, .2, d, M(floor), 0, -.1, 0);
+  const c = box(g, w + 1, .2, d + 1, M(0xf2efe6), 0, H + .1, 0); c.castShadow = true;
+  box(g, w + 2 * t, H, t, wm, 0, H / 2, -d / 2 - t / 2, true); box(g, w + 2 * t, H, t, wm, 0, H / 2, d / 2 + t / 2, true);
+  box(g, t, H, d, wm, -w / 2 - t / 2, H / 2, 0, true); box(g, t, H, d, wm, w / 2 + t / 2, H / 2, 0, true);
+  box(g, w, .12, .06, M(0xe9e2d0), 0, .06, -d / 2 + .03); box(g, w, .12, .06, M(0xe9e2d0), 0, .06, d / 2 - .03);
+  ROOMS.push(g); if (!RL) { RL = new T.PointLight(0xfff0d8, 0, 16, 1.6); scene.add(RL); }   // one lamp for all rooms: it moves to the room you are in (every lamp that exists costs on every surface in the city)
+  box(g, .5, .08, .5, M(0xfff6dc, { emissive: 0xffe9b0, emissiveIntensity: 1.2 }), 0, H - .05, 0);
+  // door frame on the south wall where the exit is
+  box(g, 1.3, 2.3, .08, M(0x5a3b25), 0, 1.15, d / 2 - .02);
+  return g;
+}
+
+G.rooms = {}; G.inside = null;
+export function enterRoom(name, out) {
+  const r = G.rooms[name], p = G.player; if (!r) return;
+  G.inside = { name, out: { x: out.x, z: out.z } };
+  p.x = r.spawn.x; p.z = r.spawn.z; p.y = 0; p.yaw = Math.PI; p.speed = 0; G.setCam(Math.PI, .25);
+  for (let k = 0; k < 4; k++) collide(p, .45);   // never arrive inside a bed, a counter or a wall
+  for (const m of r.markers) m.inside = Math.hypot(m.x - p.x, m.z - p.z) < 3.2;   // a ring you arrive standing in (the exit) does not fire until you have stepped out of it
+  G.say(r.title, 3); if (G.sfx) G.sfx.door();
+}
+export function leaveRoom() {
+  const p = G.player, i = G.inside; if (!i) return;
+  G.inside = null; p.x = i.out.x; p.z = i.out.z; p.y = 0; p.speed = 0; if (G.sfx) G.sfx.door();
+  for (const m of markers) if (!m.indoor && Math.hypot(m.x - p.x, m.z - p.z) < 2.6) m.inside = true;   // you come out standing in the door ring: it must not pull you straight back in
+}
+
+// a person lying on his back on a bed: tipped over from the feet, so the head lands on the pillow (the head end is towards the back wall)
+function lieOn(n, x, y, z) { playAnim(n, 'Idle'); n.h.rotation.order = 'YXZ'; n.h.rotation.x = -Math.PI / 2; n.h.position.set(x, y, z); }
+export function setupInteriors(scene, menus) {
+  /* ----- gun shop ----- */
+  {
+    const cx = 3000, cz = 0, w = 9, d = 8, g = room(scene, cx, cz, w, d, 0x6a6f63, 0x4a3f33);
+    const wood = M(0x6a4a2e), dark = M(0x23252a), steel = M(0x8a9098, { roughness: .4, metalness: .3 }), red = M(0xa3261e);
+    box(g, 6.2, 1.05, .8, wood, 0, .52, -1.6, true); box(g, 6.3, .06, .9, M(0x2a2c30), 0, 1.08, -1.6);
+    for (let i = 0; i < 3; i++) box(g, w - 1, .08, .45, wood, 0, 1.1 + i * .65, -d / 2 + .25);
+    for (let i = 0; i < 3; i++) for (let k = -5; k <= 5; k++) { if ((i + k) % 3 === 0) continue; box(g, .5, .12, .1, dark, k * .72, 1.24 + i * .65, -d / 2 + .25); box(g, .1, .2, .08, dark, k * .72 - .15, 1.14 + i * .65 + .02, -d / 2 + .25); }
+    for (const s of [-1, 1]) { box(g, .5, 1.9, 2.6, wood, s * (w / 2 - .3), .95, 1, true); for (let i = 0; i < 4; i++) box(g, .12, 1.3, .1, steel, s * (w / 2 - .6), 1.0, .1 + i * .6); }
+    box(g, 1.4, .5, .9, red, -2.2, 1.35, -1.6); box(g, .9, .3, .5, dark, 2.2, 1.25, -1.6);
+    const sign = new T.Mesh(new T.PlaneGeometry(4.2, .8), new T.MeshBasicMaterial({ map: text('ANCHOR ARMS', '#1b1d22', '#e0b85a') })); sign.position.set(cx, 2.85, cz - d / 2 + .02); scene.add(sign);
+    makeNPC('pm', { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', skin: 0xd9a074, hair: 0x3b2516, top: 0x2a2f3a, bottom: null }, cx, cz - 2.6, 0);
+    const mk = [
+      addMarker({ x: cx, z: cz - .4, type: 'in', icon: '', text: 'BUY', color: 0xc9423a, indoor: true, onEnter: menus.gun }),
+      addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })
+    ];
+    G.rooms.gun = { title: 'Anchor Arms', spawn: { x: cx + 1.6, z: cz + 1.6 }, markers: mk };
+  }
+  /* ----- cafe ----- */
+  {
+    const cx = 3000, cz = 120, w = 10, d = 8, g = room(scene, cx, cz, w, d, 0xe9d9b8, 0x8a5a3a);
+    const wood = M(0x7a5232), dark = M(0x2a2c30), cream = M(0xf2efe6), red = M(0xb3362e), steel = M(0x9aa0a8, { roughness: .35, metalness: .4 });
+    box(g, 6, 1.05, .8, wood, -1, .52, -2, true); box(g, 6.1, .06, .9, cream, -1, 1.08, -2); box(g, .7, .6, .5, steel, -3, 1.4, -2); box(g, 1.6, .5, .6, M(0xcfe6f2, { roughness: .1 }), .6, 1.36, -2);
+    for (let i = 0; i < 2; i++) box(g, w - 1, .08, .4, wood, 0, 1.7 + i * .6, -d / 2 + .22);
+    for (let k = -5; k <= 5; k++) box(g, .16, .3, .16, k % 2 ? red : cream, k * .8, 1.9, -d / 2 + .22);
+    for (const [tx, tz] of [[3, .5], [3, 2.6], [-3.2, 1.6]]) { box(g, .9, .06, .9, wood, tx, .76, tz, true); box(g, .1, .74, .1, dark, tx, .37, tz); for (const s2 of [-1, 1]) { box(g, .42, .05, .42, red, tx + s2 * .85, .36, tz); box(g, .05, .36, .05, dark, tx + s2 * .85, .18, tz); } }
+    const sign = new T.Mesh(new T.PlaneGeometry(4.6, .8), new T.MeshBasicMaterial({ map: text('HARBOUR CAFE', '#3a2416', '#f2d9a0') })); sign.position.set(cx, 2.85, cz - d / 2 + .02); scene.add(sign);
+    makeNPC('pw', { skin: 0xe0ac7e, hair: 0x4a2f1a, top: 0xb3362e, bottom: null }, cx - 1, cz - 3, 0);
+    for (const [sx, sz, yaw, look] of [[3 + .85, .5, -Math.PI / 2, { skin: 0xf1c9a5, hair: 0x7a2f1a, top: 0x2f5f9f }], [3 - .85, .5, Math.PI / 2, { skin: 0x8d5524, hair: 0x101010, top: 0xe0b23a }], [-3.2 + .85, 1.6, -Math.PI / 2, { skin: 0xe0ac7e, hair: 0x8a8a8a, top: 0x30343f }]]) {   // customers at the tables
+      const n = makeNPC(sx > 0 && yaw > 0 ? 'pw' : 'pm', Object.assign({ bottom: null }, look), cx + sx, cz + sz, yaw); playAnim(n, 'Sit'); }
+    const mk = [addMarker({ x: cx - 1, z: cz - .8, type: 'in', icon: '', text: 'ORDER', color: 0xe08a1f, indoor: true, onEnter: menus.food }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
+    G.rooms.cafe = { title: 'Harbour Cafe', spawn: { x: cx + 1.6, z: cz + 1.4 }, markers: mk };
+  }
+  /* ----- hospital ----- */
+  {
+    const cx = 3000, cz = 180, w = 10, d = 8, g = room(scene, cx, cz, w, d, 0xeef2f0, 0xbfd0d0);
+    const white = M(0xf6f6f2), teal = M(0x3f9a9a), dark = M(0x2a2c30), red = M(0xd9463c);
+    box(g, 4.4, 1.05, .8, white, 1.8, .52, -2, true); box(g, 4.5, .06, .9, teal, 1.8, 1.08, -2);
+    for (const bx of [-3.6, -3.6]) { box(g, 1.1, .5, 2.2, white, bx, .35, -1.6, true); box(g, 1.0, .12, .6, teal, bx, .66, -2.3); }
+    box(g, 1.1, .5, 2.2, white, -3.6, .35, 1.3, true); box(g, 1.0, .12, .6, teal, -3.6, .66, .6);
+    for (let k = 0; k < 4; k++) { box(g, .5, .36, .5, teal, 4.05, .18, .2 + k * .7);   /* low and set back, so the legs of someone sitting hang in front */ }
+    box(g, .9, .22, .06, red, 0, 2.5, -d / 2 + .03); box(g, .22, .9, .06, red, 0, 2.5, -d / 2 + .03);
+    makeNPC('pw', { skin: 0xc68642, hair: 0x101010, top: 0xf2f2ee, bottom: 0xf2f2ee }, cx + 1.8, cz - 3, 0);
+    // hospital staff and patients: a doctor by the beds, a nurse crossing the room, someone in a bed, people waiting
+    makeNPC('pm', { skin: 0xe0ac7e, hair: 0x8a8a8a, top: 0xf6f6f2, bottom: 0x3f6f8f }, cx - 2.4, cz - 1.2, -Math.PI / 2);
+    makeNPC('pw', { skin: 0x8d5524, hair: 0x1c1410, top: 0x6fc0c0, bottom: 0x6fc0c0 }, cx - .6, cz + .9, Math.PI * .75);
+    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x7a2f1a, top: 0xbfd0d0, bottom: 0xbfd0d0 }, cx - 3.6, cz + 1.7, 0); lieOn(n, cx - 3.6, .76, cz + 2.3); }   // lying on the bed, head on the pillow
+    for (const k of [0, 2]) { const n = makeNPC(k ? 'pw' : 'pm', { skin: k ? 0xc68642 : 0xf1c9a5, hair: 0x101010, top: k ? 0xd98a1f : 0x30343f, bottom: null }, cx + 3.82, cz + .2 + k * .7, -Math.PI / 2); playAnim(n, 'Sit'); }
+    const mk = [addMarker({ x: cx + 1.8, z: cz - .8, type: 'in', icon: '', text: 'TREATMENT', color: 0xd9463c, indoor: true, onEnter: menus.clinic }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
+    G.rooms.clinic = { title: 'Papillon Hospital', spawn: { x: cx - 1.6, z: cz + 1.6 }, markers: mk };
+  }
+  /* ----- police hospital: the guarded ward at the police station, where you wake up when the police shot you ----- */
+  {
+    const cx = 3000, cz = 540, w = 9, d = 7, g = room(scene, cx, cz, w, d, 0xdfe6ee, 0x9fb0c2);
+    const white = M(0xf6f6f2), navy = M(0x1f3f8a), steel = M(0x8a9199, { metalness: .6, roughness: .4 }), dark = M(0x2a2c30), sheet = M(0xcfe0ee);
+    box(g, w, .5, .05, navy, 0, 1.25, -d / 2 + .03); box(g, .05, .5, d, navy, -w / 2 + .03, 1.25, 0); box(g, .05, .5, d, navy, w / 2 - .03, 1.25, 0);   // the blue police stripe round the walls
+    box(g, .9, .22, .06, navy, 0, 2.5, -d / 2 + .04); box(g, .22, .9, .06, navy, 0, 2.5, -d / 2 + .04);                                         // a blue cross
+    for (const bx of [-3.2, -1.1, 1.0]) { box(g, 1.0, .45, 2.1, white, bx, .32, -2.0, true); box(g, .95, .1, 1.5, sheet, bx, .6, -1.75); box(g, .9, .12, .5, white, bx, .63, -2.75); box(g, 1.0, .9, .06, steel, bx, .7, -3.05); box(g, .04, 1.7, .04, steel, bx + .62, .85, -2.7); box(g, .3, .04, .04, steel, bx + .5, 1.7, -2.7); }   // three beds with a drip stand each
+    for (let k = 0; k < 7; k++) box(g, .05, 1.3, .05, steel, 3.0 + k * .16, 1.9, -d / 2 + .06); box(g, 1.2, .06, .08, steel, 3.48, 1.25, -d / 2 + .06); box(g, 1.2, .06, .08, steel, 3.48, 2.55, -d / 2 + .06); box(g, 1.1, 1.3, .02, M(0x9fd0ee, { emissive: 0x6fa8d0, emissiveIntensity: .5 }), 3.48, 1.9, -d / 2 + .03);   // a barred window
+    box(g, 1.6, .75, .7, dark, 3.3, .38, 1.6, true); box(g, .5, .36, .5, navy, 3.3, .18, 2.5);                                               // the guard's desk and chair
+    makeNPC(copKey(), { skin: 0xe0ac7e, hair: 0x3a2a1a, top: 0x1b2a55, bottom: 0x1b2a55 }, cx + 1.3, cz + 2.4, -Math.PI / 2);                 // an officer on guard by the door
+    makeNPC('pw', { skin: 0xc68642, hair: 0x101010, top: 0xf2f2ee, bottom: 0xf2f2ee }, cx - 2.1, cz - .6, Math.PI / 2);                   // the doctor
+    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x101010, top: 0xcfe0ee, bottom: 0xcfe0ee }, cx + 1.0, cz - 2.3, 0); lieOn(n, cx + 1.0, .78, cz - 1.2); }   // somebody else they brought in, lying in the bed
+    const mk = [addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
+    G.rooms.ward = { title: 'Police Hospital', spawn: { x: cx - 1.1, z: cz - .3 }, markers: mk };
+  }
+  /* ----- the bar ----- */
+  {
+    const cx = 3000, cz = 420, w = 11, d = 8, g = room(scene, cx, cz, w, d, 0x4a2f2a, 0x2e2420);
+    const wood = M(0x5a3a22), dark = M(0x1f2024), brass = M(0xc9a35a, { roughness: .35, metalness: .5 }), green = M(0x2f5a3a), red = M(0x8a2a2a);
+    box(g, 7, 1.1, .8, wood, -1, .55, -2, true); box(g, 7.2, .07, 1, dark, -1, 1.13, -2); box(g, 7, .06, .06, brass, -1, .3, -1.56);           // the counter with its brass foot rail
+    for (let i = 0; i < 3; i++) box(g, w - 1.5, .07, .35, wood, -.3, 1.6 + i * .55, -d / 2 + .2);                                                   // shelves of bottles behind it
+    for (let i = 0; i < 3; i++) for (let k = -8; k <= 7; k++) box(g, .12, .34, .12, [green, red, brass, M(0x8a6a2a), M(0xdfe6ee, { roughness: .1 })][(k + i * 2 + 16) % 5], k * .55 - .2, 1.8 + i * .55, -d / 2 + .2);
+    for (let k = 0; k < 5; k++) { box(g, .36, .06, .36, red, -3.6 + k * 1.3, .72, -1.15); box(g, .06, .72, .06, dark, -3.6 + k * 1.3, .36, -1.15); }   // bar stools
+    for (const [tx, tz] of [[3.6, .8], [3.6, 2.6], [-3.6, 2.4]]) { box(g, .9, .06, .9, wood, tx, .74, tz, true); box(g, .1, .72, .1, dark, tx, .36, tz); for (const s2 of [-1, 1]) { box(g, .42, .05, .42, red, tx + s2 * .85, .36, tz); box(g, .05, .36, .05, dark, tx + s2 * .85, .18, tz); } }
+    box(g, 1.3, 1.3, .08, M(0x16171b), 4.2, 1.9, -d / 2 + .06); for (const r of [.5, .34, .18]) box(g, r * 2, r * 2, .02, r === .34 ? M(0xd8d2c0) : red, 4.2, 1.9, -d / 2 + .11 + (.5 - r) * .02);   // a dartboard
+    box(g, 1.1, 1.5, .7, M(0x2a3f8a), -w / 2 + .5, .75, .2, true); box(g, .9, .6, .05, M(0xf2c21a, { emissive: 0xf2c21a, emissiveIntensity: .5 }), -w / 2 + .87, 1.15, .2);   // a jukebox
+    const sign = new T.Mesh(new T.PlaneGeometry(4.6, .8), new T.MeshBasicMaterial({ map: text('THE RUSTY ANCHOR', '#2a1a14', '#e0b85a') })); sign.position.set(cx, 2.85, cz - d / 2 + .02); scene.add(sign);
+    makeNPC('pm', { skin: 0xe0ac7e, hair: 0x8a8a8a, top: 0x1f2024, bottom: null }, cx - 1, cz - 3, 0);                                             // the barman
+    { const n = makeNPC('pm', { skin: 0x8d5524, hair: 0x101010, top: 0x7a3f2a, bottom: null }, cx - 2.3, cz - 1.05, Math.PI); playAnim(n, 'Sit'); n.h.position.y = .34; }
+    { const n = makeNPC('pw', { skin: 0xf1c9a5, hair: 0x7a2f1a, top: 0x2f5f9f, bottom: null }, cx + 3.6 + .8, cz + .8, -Math.PI / 2); playAnim(n, 'Sit'); }
+    { const n = makeNPC('pm', { skin: 0xc68642, hair: 0x1c1410, top: 0x30343f, bottom: null }, cx + 3.6 - .8, cz + .8, Math.PI / 2); playAnim(n, 'Sit'); }
+    makeNPC('pw', { skin: 0xe0ac7e, hair: 0xc9a35a, top: 0xb3362e, bottom: null }, cx + 3.3, cz - 2.4, Math.PI * .1);                              // somebody at the dartboard
+    const mk = [addMarker({ x: cx - 1, z: cz - .8, type: 'in', icon: '', text: 'ORDER', color: 0xc9a35a, indoor: true, onEnter: menus.bar }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
+    G.rooms.bar = { title: 'The Rusty Anchor', spawn: { x: cx + 1.4, z: cz + 1.8 }, markers: mk };
+  }
+  /* ----- the clothes shop ----- */
+  {
+    const cx = 3000, cz = 480, w = 10, d = 8, g = room(scene, cx, cz, w, d, 0xf2ece0, 0xb89a72);
+    const wood = M(0xb08a5a), dark = M(0x2a2c30), steel = M(0xb9c0c8, { roughness: .3, metalness: .5 }), cols = [0xb3362e, 0x2f5f9f, 0xe0b23a, 0x2f7a5a, 0xf2f2ee, 0x30343f, 0x7a3f8f, 0xd98a1f].map(c => M(c));
+    box(g, 3, 1, .8, wood, 2.6, .5, -2, true); box(g, 3.1, .06, .9, M(0xf2efe6), 2.6, 1.03, -2); box(g, .5, .35, .4, dark, 3.4, 1.25, -2);              // the till
+    for (const rx of [-3.2, -1]) { box(g, .06, 1.6, .06, steel, rx, .8, -1.2); box(g, .06, 1.6, .06, steel, rx, .8, 1.2); box(g, .05, .05, 2.4, steel, rx, 1.6, 0); for (let k = 0; k < 8; k++) box(g, .5, .75, .08, cols[(k + (rx < -2 ? 0 : 3)) % 8], rx, 1.2, -1 + k * .28); }   // two rails of clothes
+    for (let i = 0; i < 3; i++) { box(g, 4, .06, .45, wood, -2.6, .9 + i * .6, -d / 2 + .25); for (let k = 0; k < 6; k++) box(g, .5, .16, .36, cols[(k * 3 + i) % 8], -4.2 + k * .65, 1.02 + i * .6, -d / 2 + .25); }   // folded things on shelves
+    box(g, 1.2, 2.1, .06, M(0xcfe6f2, { roughness: .05, metalness: .6 }), w / 2 - .05, 1.15, 1.4); box(g, 1.3, 2.2, .04, wood, w / 2 - .03, 1.15, 1.4);       // a mirror
+    box(g, 1.3, 2.3, 1.3, M(0x7a4f8a), w / 2 - .75, 1.15, -2.9, true);                                                                                   // the changing room
+    const sign = new T.Mesh(new T.PlaneGeometry(4.2, .8), new T.MeshBasicMaterial({ map: text('PAPILLON MODE', '#f2ece0', '#30343f') })); sign.position.set(cx - 1.5, 2.85, cz - d / 2 + .02); scene.add(sign);
+    makeNPC('pw', { skin: 0xc68642, hair: 0x101010, top: 0xf2f2ee, bottom: 0x30343f }, cx + 2.6, cz - 2.9, 0);
+    makeNPC('pw', { skin: 0xf1c9a5, hair: 0x7a2f1a, top: 0xd98a1f, bottom: null }, cx - 2, cz + .3, -Math.PI / 2);
+    const mk = [addMarker({ x: cx + 2.6, z: cz - .8, type: 'in', icon: '', text: 'CLOTHES', color: 0x7a4f8a, indoor: true, onEnter: menus.cloth }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
+    G.rooms.cloth = { title: 'Papillon Mode', spawn: { x: cx + 1.2, z: cz + 1.8 }, markers: mk };
+  }
+  /* ----- police station ----- */
+  {
+    const cx = 3000, cz = 240, w = 10, d = 8, g = room(scene, cx, cz, w, d, 0xc9d2de, 0x5a6470);
+    const navy = M(0x1b2a55), wood = M(0x6a4a2e), dark = M(0x23252a), steel = M(0x8a9098, { roughness: .4, metalness: .3 });
+    box(g, 6, 1.1, .9, navy, 0, .55, -1.8, true); box(g, 6.1, .06, 1, wood, 0, 1.13, -1.8); box(g, .7, .5, .1, dark, -1.6, 1.42, -1.8); box(g, .7, .5, .1, dark, 1.6, 1.42, -1.8);
+    for (let k = 0; k < 7; k++) box(g, .08, 3.2, .08, steel, w / 2 - 2.6 + k * .4, 1.6, 1.2);
+    box(g, 2.6, .08, .08, steel, w / 2 - 1.4, 3.1, 1.2); box(g, 1.6, .36, .5, wood, w / 2 - 1.2, .18, 3.1, true);
+    for (let k = 1; k < 8; k++) box(g, .08, 3.2, .08, steel, w / 2 - 2.6, 1.6, 1.2 + k * .4); box(g, .08, .08, 2.8, steel, w / 2 - 2.6, 3.1, 2.6);   // the side of the cell: he really is locked in
+    addBox(cx + w / 2 - 2.66, cz + 1.14, cx + w / 2, cz + 1.26, 3); addBox(cx + w / 2 - 2.66, cz + 1.14, cx + w / 2 - 2.54, cz + d / 2, 3);
+    for (let k = 0; k < 3; k++) box(g, .5, .36, .5, navy, -w / 2 + .4, .18, .4 + k * .7, true);
+    const sign = new T.Mesh(new T.PlaneGeometry(4.6, .8), new T.MeshBasicMaterial({ map: text('PAPILLON POLICE', '#17409a', '#ffffff') })); sign.position.set(cx, 2.85, cz - d / 2 + .02); scene.add(sign);
+    makeNPC('pm', { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', skin: 0xe0ac7e, hair: 0x1c1410, top: 0x1b2a55, bottom: 0x141c33 }, cx, cz - 2.9, 0);
+    // the armoury: steel lockers in the corner by the door
+    box(g, 2.2, 2.3, .6, steel, -w / 2 + 1.6, 1.15, d / 2 - .45, true); for (let k = 0; k < 3; k++) box(g, .62, 2.1, .04, dark, -w / 2 + .9 + k * .7, 1.15, d / 2 - .77); box(g, .5, .16, .05, M(0xe2bd2a), -w / 2 + 1.6, 2.1, d / 2 - .8);
+    { const n = makeNPC('pm', { skin: 0xc68642, hair: 0x1c1410, top: 0x7a3f2a, bottom: null }, cx - w / 2 + .63, cz + 1.1, Math.PI / 2); playAnim(n, 'Sit'); }   // someone waiting on the bench
+    // officers: one by the cells, one near the lockers, one walking a report over; and somebody locked up
+    const COP = { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', top: 0x1b2a55, bottom: 0x141c33 };
+    makeNPC('pm', Object.assign({ skin: 0x8d5524, hair: 0x101010 }, COP), cx + w / 2 - 3.1, cz + 2.2, Math.PI / 2);
+    makeNPC('pw', Object.assign({ skin: 0xf1c9a5, hair: 0xc9a35a }, COP), cx - 2.6, cz + .2, Math.PI * .2);
+    makeNPC('pm', Object.assign({ skin: 0xe0ac7e, hair: 0x3b2516 }, COP), cx + 2.2, cz - .4, -Math.PI * .6);
+    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x1c1410, top: 0xd9731f, bottom: 0xd9731f }, cx + w / 2 - 1.2, cz + 2.87, Math.PI); playAnim(n, 'Sit'); }
+    const mk = [addMarker({ x: cx - w / 2 + 1.6, z: cz + d / 2 - 1.7, type: 'in', icon: '', text: 'ARMOURY', color: 0xe2bd2a, indoor: true, onEnter: menus.armoury }), addMarker({ x: cx, z: cz - .5, type: 'in', icon: '', text: 'FRONT DESK', color: 0x2f5fd0, indoor: true, onEnter: menus.desk }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
+    G.rooms.desk = { title: 'Police station', spawn: { x: cx + 1.2, z: cz + 1.4 }, markers: mk };
+  }
+  /* ----- bank ----- */
+  {
+    const cx = 3000, cz = 360, w = 12, d = 9, g = room(scene, cx, cz, w, d, 0xe9e2d0, 0x6a5a4a);
+    const marble = M(0xd9d4c8), wood = M(0x5a3a22), brass = M(0xc9a23a, { roughness: .3, metalness: .6 }), steel = M(0x8a9098, { roughness: .35, metalness: .5 }), dark = M(0x23252a), glass = M(0xbfe3ea, { roughness: .05, transparent: true, opacity: .35 }), green = M(0x2f7a4a);
+    box(g, 7.4, 1.1, .9, wood, -2, .55, -2, true); box(g, 7.5, .06, 1, marble, -2, 1.13, -2); box(g, 7.4, 1, .05, glass, -2, 1.66, -2.3);   // the counter with its glass screen
+    for (const k of [-4.6, -2, .6]) box(g, .5, .04, .3, brass, k, 1.18, -1.9);
+    box(g, 3, 3.2, .5, steel, 4.2, 1.6, -d / 2 + .3, true); box(g, 1.9, 1.9, .2, dark, 4.2, 1.5, -d / 2 + .62); box(g, .9, .12, .12, brass, 4.2, 1.5, -d / 2 + .76); box(g, .12, .9, .12, brass, 4.2, 1.5, -d / 2 + .76);   // the vault door
+    for (const k of [-1, 1]) { box(g, .1, 1, .1, brass, 1.6 + k * 1.2, .5, 1.6); } box(g, 2.5, .05, .05, M(0x8a1f1f), 1.6, .95, 1.6);   // a queue rope
+    for (let k = 0; k < 2; k++) { box(g, .5, .36, 1.6, green, -w / 2 + .4, .18, .6 + k * 1.9, true); }
+    box(g, 2.2, 1.3, .1, M(0x1c3a2a), -3.6, 2.3, -d / 2 + .06); const sign = new T.Mesh(new T.PlaneGeometry(5.2, .8), new T.MeshBasicMaterial({ map: text('PAPILLON SAVINGS BANK', '#1c3a2a', '#e9d9a0') })); sign.position.set(cx - 1, 2.85, cz - d / 2 + .02); scene.add(sign);
+    makeNPC('pw', { skin: 0xe0ac7e, hair: 0x3b2516, top: 0x1c3a2a, bottom: null }, cx - 2, cz - 3.1, 0);                                             // the teller
+    makeNPC('pm', { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', skin: 0x8d5524, hair: 0x101010, top: 0x1b2a55, bottom: 0x141c33 }, cx + w / 2 - 1.2, cz + 2.6, -Math.PI / 2);   // the guard by the door
+    makeNPC('pm', { skin: 0xf1c9a5, hair: 0x8a8a8a, top: 0x7a5a3a, bottom: null }, cx + .2, cz - .6, Math.PI); makeNPC('pw', { skin: 0xc68642, hair: 0x1c1410, top: 0xb3362e, bottom: null }, cx + 1.4, cz + .5, Math.PI * .9);   // customers
+    { const n = makeNPC('pm', { skin: 0xe0ac7e, hair: 0x101010, top: 0x30343f, bottom: null }, cx - w / 2 + .63, cz + .6, Math.PI / 2); playAnim(n, 'Sit'); }
+    const mk = [addMarker({ x: cx - 2, z: cz - .9, type: 'in', icon: '', text: 'TELLER', color: 0x2f7a4a, indoor: true, onEnter: bankMenu }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom }),
+      addMarker({ x: cx + 4.2, z: cz - d / 2 + 1.7, type: 'in', icon: '', text: 'VAULT', color: 0xc9a23a, indoor: true, onEnter: vaultUse })];
+    G.rooms.bank = { title: 'Papillon Savings Bank', spawn: { x: cx + 1.5, z: cz + 1.9 }, markers: mk };
+  }
+  /* ----- your flat ----- */
+  {
+    const cx = 3000, cz = 60, w = 9, d = 7.5, g = room(scene, cx, cz, w, d, 0xe8dcc0, 0x9a7650);
+    const wood = M(0x7a5232), white = M(0xf2efe6), blue = M(0x3f6f9f), dark = M(0x23252a), green = M(0x4f7f5f);
+    box(g, 2.0, .45, 2.9, wood, -w / 2 + 1.2, .22, -d / 2 + 1.7, true); box(g, 1.9, .22, 2.8, white, -w / 2 + 1.2, .55, -d / 2 + 1.7); box(g, 1.9, .16, 1.9, blue, -w / 2 + 1.2, .68, -d / 2 + 2.1); box(g, 1.2, .16, .5, white, -w / 2 + 1.2, .74, -d / 2 + .7);
+    box(g, 2.4, .45, .95, green, 2.2, .3, -d / 2 + .7, true); box(g, 2.4, .7, .25, green, 2.2, .75, -d / 2 + .3);
+    box(g, 1.3, .06, .8, wood, 2.2, .45, -d / 2 + 2.2, true); for (const a of [[-.55, -.3], [.55, -.3], [-.55, .3], [.55, .3]]) box(g, .07, .42, .07, wood, 2.2 + a[0], .21, -d / 2 + 2.2 + a[1]);
+    box(g, 1.6, 2.2, .6, wood, w / 2 - 1.2, 1.1, d / 2 - .5, true); box(g, .04, 2.0, .02, dark, w / 2 - 1.2, 1.1, d / 2 - .81);
+    box(g, 1.5, .9, .08, dark, -2.4, 1.6, d / 2 - .06); box(g, 3.2, .02, 2.2, M(0xb3423a), 1.2, .012, .2);
+    box(g, .5, .9, .5, M(0x6a4a2e), -w / 2 + .5, .45, 1.5, true); box(g, .5, .7, .5, M(0x3f8f4a), -w / 2 + .5, 1.25, 1.5);
+    const mk = [
+      addMarker({ x: cx - w / 2 + 2.9, z: cz - d / 2 + 2.2, type: 'in', icon: '', text: 'SLEEP AND SAVE', color: 0x3a9a5a, indoor: true, onEnter: menus.bed }),
+      addMarker({ x: cx + w / 2 - 1.2, z: cz + d / 2 - 2.0, type: 'in', icon: '', text: 'WARDROBE', color: 0x7a4fa8, indoor: true, onEnter: menus.wardrobe }),
+      addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })
+    ];
+    G.rooms.flat = { title: 'Home', spawn: { x: cx - 1.2, z: cz + 1.2 }, markers: mk };
+  }
+}
+function text(t, bg, fg) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0, 0, 512, 96); x.fillStyle = fg; x.font = 'bold 56px Georgia,serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, 256, 52, 490);
+  const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; return tex;
+}
