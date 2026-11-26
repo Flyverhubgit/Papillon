@@ -79,10 +79,61 @@
   body.mobile .pc{display:none} body:not(.mobile) .ph{display:none}
   #rotate{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#0b1626;font-size:20px;text-align:center;padding:30px;z-index:9}
   body.portrait #rotate{display:flex}
+  /* ---- polish: title screen, loading, menus, HUD ---- */
+  #start{background:radial-gradient(ellipse at 50% 45%,rgba(8,16,30,.05) 0,rgba(8,16,30,.55) 70%,rgba(4,8,16,.9) 100%),linear-gradient(180deg,rgba(8,16,30,.1),rgba(8,16,30,.6));transition:opacity .7s;font-family:"Segoe UI",system-ui,sans-serif}
+  #start.gone{opacity:0;pointer-events:none}
+  #start h1{font:900 clamp(48px,11vw,118px) Georgia,"Times New Roman",serif;letter-spacing:.16em;margin-right:-.16em;background:linear-gradient(180deg,#fff 0%,#ffe9a6 45%,#e0a92e 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 4px 18px rgba(0,0,0,.65));animation:logoin 1.2s ease-out both}
+  #start h1::after{content:"";display:block;width:min(260px,40vw);height:2px;margin:10px auto 0;background:linear-gradient(90deg,transparent,#ffd21f,transparent)}
+  #start p{letter-spacing:.32em;text-transform:uppercase;font-size:clamp(11px,1.6vw,14px);font-weight:600;opacity:.85;margin:14px 0 30px;animation:logoin 1.6s ease-out both}
+  @keyframes logoin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  #load{height:5px;background:rgba(255,255,255,.18);box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  #bar{background:linear-gradient(90deg,#ffb400,#ffe27a);box-shadow:0 0 12px rgba(255,210,31,.8)}
+  #status{letter-spacing:.14em;text-transform:uppercase;font-size:12px;opacity:.8}
+  .play{letter-spacing:.06em;transition:transform .15s,box-shadow .15s,background .15s}
+  .play:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 0 3px rgba(255,210,31,.35)}
+  .play:active{transform:scale(.97)}
+  .play.alt{background:rgba(255,255,255,.12);color:#fff;border:2px solid rgba(255,255,255,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  #keys{max-width:min(760px,92vw);padding:12px 18px;border-radius:14px;background:rgba(6,12,22,.45);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-size:13px}
+  #menu{background:rgba(4,8,16,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+  #mCard{background:rgba(18,24,38,.94);color:#f2f4f8;border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:logoin .25s ease-out both}
+  #mCard h2{font:800 22px Georgia,serif;letter-spacing:.06em;color:#ffe27a}
+  #mCard p{color:#9aa4b8}
+  .mopt{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);transition:background .15s,transform .1s}
+  .mopt:hover{background:rgba(255,210,31,.2)}
+  .mopt:active{transform:scale(.985)}
+  #mClose{border-color:rgba(255,255,255,.4);color:#fff}
+  #mClose:hover{background:rgba(255,255,255,.12)}
+  #builder{background:rgba(18,24,38,.94);color:#f2f4f8;border:1px solid rgba(255,255,255,.12)}
+  #builder h2{color:#ffe27a;letter-spacing:.06em}
+  .brow>span{color:#9aa4b8}
+  .arr{background:rgba(255,255,255,.14)}
+  .seg button{border-color:rgba(255,255,255,.4);color:#fff}
+  .seg button.on{background:#ffd21f;color:#1a1400;border-color:#ffd21f}
+  .sw i.on{border:3px solid #fff;box-shadow:0 0 0 2px #ffd21f}
+  #bRandom{border-color:rgba(255,255,255,.4);color:#fff}
+  /* HUD: one glass style, tabular numbers */
+  #clock,#money,#weapon,#speed,#job,#hint{background:rgba(8,12,22,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:3px 10px;text-shadow:none;font-variant-numeric:tabular-nums}
+  #clock{font:700 16px "Segoe UI",system-ui,sans-serif;letter-spacing:.08em;color:#e8edf7;top:46px}
+  #money{font:800 20px "Segoe UI",system-ui,sans-serif;letter-spacing:.04em;color:#8dffa0;top:78px}
+  #speed{font:800 26px "Segoe UI",system-ui,sans-serif;letter-spacing:.03em}
+  #weapon{border-radius:10px;font:600 14px "Segoe UI",system-ui,sans-serif;top:140px}
+  #job{border-radius:12px;padding:7px 16px;color:#ffe27a;font:700 15px "Segoe UI",system-ui,sans-serif;letter-spacing:.02em}
+  #hint{border-radius:12px}
+  #hpbox{height:10px;border:1px solid rgba(255,255,255,.55);background:rgba(0,0,0,.5);top:112px;box-shadow:0 1px 6px rgba(0,0,0,.4)}
+  #hp{background:linear-gradient(90deg,#ff3d2e,#ff7a5a)}
+  #arbox{top:127px}
+  #map{border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 4px rgba(8,12,22,.45),0 4px 16px rgba(0,0,0,.5)}
+  #big{font:900 76px Georgia,serif;letter-spacing:.14em;background:radial-gradient(ellipse at center,rgba(0,0,0,.15),rgba(0,0,0,.6))}
+  body.mobile #clock{top:38px;font-size:14px} body.mobile #money{top:64px;font-size:16px} body.mobile #hpbox{top:94px} body.mobile #arbox{top:107px} body.mobile #weapon{top:120px}
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.38) 100%);opacity:0;transition:opacity .6s}
+  body.playing #vig{opacity:1}
+  #speedfx{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;background:radial-gradient(ellipse at center,rgba(255,255,255,0) 42%,rgba(255,255,255,.13) 100%),repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.10) 0 .4deg,rgba(255,255,255,0) .4deg 3.1deg);-webkit-mask-image:radial-gradient(ellipse at center,transparent 38%,#000 85%);mask-image:radial-gradient(ellipse at center,transparent 38%,#000 85%);transition:opacity .25s}
+  #map,#stars,#clock,#money,#hpbox,#arbox,#weapon,#speed,#job,#hint,#big,#menu{z-index:6}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="vig"></div><div id="speedfx"></div>
 <canvas id="map" class="hud"></canvas>
 <canvas id="bigmap"></canvas>
 <div id="stars" class="hud"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>

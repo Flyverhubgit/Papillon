@@ -225,6 +225,7 @@ function retargetXP(ref, srcT) {
       const Mh = new T.Matrix4().compose(hp, W0.mixamorigRightHand, hs), want = new T.Matrix4().compose(hp.clone().add(gp.clone().sub(wp).multiplyScalar(f)), gq, new T.Vector3(1, 1, 1).multiplyScalar(gs.x * f));
       const loc = Mh.invert().multiply(want), lp2 = new T.Vector3(), lq = Q(), ls = new T.Vector3(); loc.decompose(lp2, lq, ls); hold = { p: lp2.toArray(), q: lq.toArray(), s: ls.x };
     } }
+  const ABD = {}, ABDA = .14; { const hx = hipT.getWorldPosition(new T.Vector3()).x; for (const sd of ['Left', 'Right']) for (const p of ['Arm', 'ForeArm', 'Hand']) { const b = tbn['mixamorig' + sd + p]; if (!b) continue; const sg = Math.sign(tbn['mixamorig' + sd + 'Arm'].getWorldPosition(new T.Vector3()).x - hx) || 1; ABD[b.name] = Q().setFromAxisAngle(new T.Vector3(0, 0, 1), sg * ABDA); } }
   const out = {}, mx = new T.AnimationMixer(src), parentW0 = {}; for (const o of tOrder) parentW0[o.name] = o.parent && !o.parent.isBone ? wq(o.parent) : null;
   for (const name in srcT.clips) {
     const clip = srcT.clips[name], n = Math.max(2, Math.ceil(clip.duration * 30) + 1), times = new Float32Array(n), vals = {}, pos = new Float32Array(n * 3);
@@ -236,6 +237,7 @@ function retargetXP(ref, srcT) {
       for (const o of tOrder) {
         const s = sb[MXMAP[o.name]], pw = o.parent && o.parent.isBone ? WF[o.parent.name] : parentW0[o.name];
         let W; if (s && S0[o.name]) { W = wq(s).multiply(S0[o.name].clone().invert()).multiply(W0[o.name]); } else W = (pw || Q()).clone().multiply(L0[o.name]);
+        if (ABD[o.name]) W = ABD[o.name].clone().multiply(W);   // arms held a little away from the body, so the sleeves and shoulders do not pinch in
         WF[o.name] = W;
         if (vals[o.name]) { const l = (pw || Q()).clone().invert().multiply(W); l.toArray(vals[o.name], i * 4); }
       }
@@ -248,6 +250,7 @@ function retargetXP(ref, srcT) {
   return { clips: out, hold };
 }
 export const xpKeys = sex => XP[sex === 'w' || sex === 'f' ? 'f' : 'm'].map(e => e.key);
+G.syncOccDBG = c => syncOcc(c); G.newPersonDBG = (k, l) => newPerson(k, l); G.animDBG = (p, n, o, t) => anim(p, n, o, t); G.xpKeysDBG = sx => xpKeys(sx);
 export const copKey = () => XP.c.length ? XP.c[Math.floor(rnd() * XP.c.length)].key : 'pm';
 export const civKey = () => { const sex = rnd() < .5 ? 'm' : 'f', l = XP[sex]; if (!l.length) return sex === 'm' ? 'pm' : 'pw'; return l[Math.floor(rnd() * l.length)].key; };
 const SKIN = [0xf1c9a5, 0xe0ac7e, 0xc68642, 0x8d5524, 0x6b3f1d, 0xffdbb5, 0xd9a074];
@@ -942,14 +945,32 @@ function occFigure(shirt) {
   const g = new T.Group(), b = new T.Mesh(occGeo.body, occMat(shirt || pick(OSHIRT))), h = new T.Mesh(occGeo.head, occMat(pick(OSKIN))), hr = new T.Mesh(occGeo.hair, occMat(pick(OHAIR)));
   b.position.y = .17; h.position.y = .46; hr.position.y = .6; g.add(b, h, hr); return g;
 }
+// real people (seated) for the cars close to you; the blocky figures stay only as a back-up when too many are in use
+const occPool = { civ: [], cop: [] }; let occMade = 0;
+function takeOcc(cop) {
+  const pool = occPool[cop ? 'cop' : 'civ']; let n = pool.pop();
+  if (!n) { if (occMade >= 16 || !XP.m.length) return null; occMade++; n = newPerson(cop ? copKey() : civKey()); n.cop = cop; n.base = n.h.scale.x; n.h.rotation.y = Math.PI / 2; anim(n, 'Drive'); n.mixer.update(.4); }
+  return n;
+}
+function freeOcc(c) { if (!c.occ) return; for (const n of c.occ) { if (n.real) { n.h.visible = false; c.g.remove(n.h); occPool[n.cop ? 'cop' : 'civ'].push(n); } else c.g.remove(n); } c.occ = null; }
 // show or hide the driver (and now and then a passenger) of a car
 function syncOcc(c) {
   const ge = GEO[c.type]; if (!ge || !ge.seat) return;
   const pl = G.player, mine = pl.car === c, drive = !c.dead && (!!c.ai || (c.chase && !c.cop) || (mine && !pl.passenger)), pass = !c.dead && ((mine && pl.passenger) || (drive && c.hasPass));
-  if (!drive && !pass && !c.occ) return;
-  if (!c.occ) { const st = ge.seat, y = Math.min(st.y + .02, st.top - .74); c.hasPass = c.hasPass === undefined ? rnd() < .3 : c.hasPass;
-    const d = occFigure(c.police ? 0x1f2f55 : 0), q = occFigure(0); d.position.set(st.x - .02, y, -st.z); q.position.set(st.x - .02, y, st.z); c.g.add(d, q); c.occ = [d, q]; }
-  c.occ[0].visible = drive; c.occ[1].visible = !!pass;
+  const near = mine || ((c.x - pl.x) ** 2 + (c.z - pl.z) ** 2 < 2500);
+  if (c.occ && (!near || c.dead)) { freeOcc(c); if (!near) return; }   // far away nobody needs to be drawn
+  if (!drive && !pass && !c.occ) return; if (!near) return;
+  if (!c.occ) {
+    const st = ge.seat; c.hasPass = c.hasPass === undefined ? rnd() < .3 : c.hasPass;
+    const a = takeOcc(!!c.police), b = takeOcc(!!c.police);
+    if (a && b) {
+      const sc = .9, hS = Math.max(.5, Math.min(.9, (st.top - .5) / 1.3));   // a little squashed so it sits inside the car: feet on the floor, head under the roof   // head just under the roof line, whatever the car
+      for (const [n, z] of [[a, -st.z], [b, st.z]]) { n.real = true; n.h.scale.set(n.base * sc, n.base * hS, n.base * sc); n.h.position.set(st.x - .4, .28, z); c.g.add(n.h); }
+      c.occ = [a, b];
+    } else { if (a) occPool[a.cop ? 'cop' : 'civ'].push(a); if (b) occPool[b.cop ? 'cop' : 'civ'].push(b);
+      const y = Math.min(st.y + .02, st.top - .74), d = occFigure(c.police ? 0x1f2f55 : 0), q = occFigure(0); d.position.set(st.x - .02, y, -st.z); q.position.set(st.x - .02, y, st.z); c.g.add(d, q); c.occ = [d, q]; }
+  }
+  const o0 = c.occ[0].real ? c.occ[0].h : c.occ[0], o1 = c.occ[1].real ? c.occ[1].h : c.occ[1]; o0.visible = drive; o1.visible = !!pass;
 }
 // car paint: a glossy clear coat that mirrors the sky. The sky picture is drawn once (a sphere of colour with a sun in it) and shown on every car body
 let carEnv = null;

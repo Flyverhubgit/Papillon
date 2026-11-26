@@ -487,7 +487,7 @@ function updateCamera(dt) {
     tgt.set(p.x - Math.cos(camYaw) * shoulder, 1.55 + p.y + (G.aim ? .08 : 0), p.z + Math.sin(camYaw) * shoulder);
     want = G.debug && G.debug.dist ? G.debug.dist : G.inside ? 3.6 : G.aim ? 2.6 : 5.2; camIdle += dt;
     if (camIdle > (MOBILE ? 1.5 : 3) && p.speed > 1 && !G.aim && !G.inside && !(p.shootT > 0)) { const off = wrapA(p.yaw - camYaw); if (Math.abs(off) < 1.9) camYaw += off * Math.min(1, dt * (MOBILE ? 1.4 : .7)); }   /* swing round behind the walker, but not when they walk towards the camera */
-    const fov = G.aim ? (G.weapon === 'sniper' ? 15 : 42) : 55; if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 7); camera.updateProjectionMatrix(); }
+    const sv = p.car && !p.car.spec.tank ? p.car.v : (p.ride ? p.ride.v || 0 : 0), fov = G.aim ? (G.weapon === 'sniper' ? 15 : 42) : 55 + Math.min(13, Math.max(0, sv - 12) * .45); { const sl = document.getElementById('speedfx'); if (sl) sl.style.opacity = Math.min(.85, Math.max(0, (sv - 20) / 30)).toFixed(2); } if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 7); camera.updateProjectionMatrix(); }
   }
   const xh = playing && !p.car && !p.ride && !p.swim && !menuOpen && GUNS[G.weapon] && !GUNS[G.weapon].melee; if (xhEl && xh !== xhEl.shown) { xhEl.shown = xh; xhEl.style.display = xh ? 'block' : 'none'; }
   if (p.car || p.ride) { G.aim = false; G.shoulder = shoulder = 0; }

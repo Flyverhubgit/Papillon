@@ -1,7 +1,7 @@
 // Papillon - sound made in the browser (no audio files): engine, siren, shots, hits, cash
-import { G } from './world.js';
+import { G, COAST, HARB } from './world.js';
 
-let ctx = null, master, engOsc, engGain, sirOsc, sirGain, noise, scrGain = null, rainGain = null, stepT = 0, lastX = 0, lastZ = 0;
+let waveGain = null, humGain = null, birdT = 0, ctx = null, master, engOsc, engGain, sirOsc, sirGain, noise, scrGain = null, rainGain = null, stepT = 0, lastX = 0, lastZ = 0;
 // a steady hiss shaped by a filter: tyres squealing (narrow, high) and rain (wide, soft)
 function hiss(type, freq, q) { const s = ctx.createBufferSource(); s.buffer = noise; s.loop = true; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(master); s.start(); return g; }
 export function initSound() {
@@ -14,12 +14,13 @@ export function initSound() {
   sirOsc = ctx.createOscillator(); sirOsc.type = 'triangle'; sirGain = ctx.createGain(); sirGain.gain.value = 0; sirOsc.connect(sirGain); sirGain.connect(master); sirOsc.start();
   const n = ctx.sampleRate * .5; noise = ctx.createBuffer(1, n, ctx.sampleRate); const d = noise.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
   scrGain = hiss('bandpass', 1500, 9); rainGain = hiss('highpass', 2600, .4);
+  waveGain = hiss('lowpass', 520, .5); humGain = hiss('lowpass', 170, .4);
   G.sfx = sfx;
 }
 export function updateSound() {
   if (!ctx) return; const p = G.player, veh = p.car || p.ride, t = ctx.currentTime, v = veh ? veh.v : 0;
   let g = 0, f = 45;
-  if (veh) { if (veh.heli) { g = .2 * (veh.spin || 0); f = 34 + (veh.spin || 0) * 20; } else if (veh.boat) { g = veh.sail ? 0 : .05 + Math.min(.08, v * .005); f = 48 + v * 3; } else { g = .045 + Math.min(.08, v * .004); f = 52 + v * 4.4; } }
+  if (veh) { if (veh.heli) { g = .2 * (veh.spin || 0); f = 34 + (veh.spin || 0) * 20; } else if (veh.boat) { g = veh.sail ? 0 : .05 + Math.min(.08, v * .005); f = 48 + v * 3; } else { g = .045 + Math.min(.08, v * .004); const gr = Math.min(5, Math.floor(v / 7)), inG = v - gr * 7; f = 50 + gr * 5 + inG * 4.2; if (veh.shiftT !== undefined && veh.gearN !== gr) { veh.gearN = gr; veh.shiftT = G.time; } else if (veh.gearN === undefined) { veh.gearN = gr; veh.shiftT = 0; } if (G.time - (veh.shiftT || 0) < .12) g *= .45; } }   // revs climb in each gear and drop at the shift
   engGain.gain.setTargetAtTime(g, t, .12); engOsc.frequency.setTargetAtTime(f, t, .08);
   // tyres: sliding sideways, or the handbrake on at speed
   { let scr = 0; const c = p.car; if (c && !c.spec.bike && !c.spec.tank && c.v > 5 && (c.up === undefined || c.up > .6) && !(G.physAir && G.physAir(c))) { const side = Math.abs(-c.vx * -Math.sin(c.h) + c.vz * Math.cos(c.h)) ; const lat = Math.abs(c.vx * Math.sin(c.h) + c.vz * Math.cos(c.h)); scr = Math.min(1, Math.max(0, (lat - 3.5) / 7)); if (G.debug && G.debug.keys && G.debug.keys.Space) scr = Math.max(scr, Math.min(1, c.v / 14)); }
@@ -31,7 +32,25 @@ export function updateSound() {
   sirGain.gain.setTargetAtTime(near < 110 ? .07 * (1 - near / 110) : 0, t, .15);
   sirOsc.frequency.setTargetAtTime(Math.floor(G.time * 2.2) % 2 ? 880 : 660, t, .03);
   radioTick(!!p.car);
+  ambience(p, t);
 }
+// how far the nearest sea water is
+function waterDist(x, z) { const d1 = Math.max(0, x - COAST), dz = z < HARB.z0 ? HARB.z0 - z : z > HARB.z1 ? z - HARB.z1 : 0, d2 = x < HARB.x1 ? dz : Math.hypot(x - HARB.x1, dz); return Math.min(d1, d2); }
+// the sea, the town hum, birds by day and crickets at night
+function ambience(p, t) {
+  const out = !G.inside, wd = waterDist(p.x, p.z), hour = G.hour, day = hour > 6.5 && hour < 19, windowed = out && !(p.car && !p.car.open && false);
+  waveGain.gain.setTargetAtTime(out ? Math.max(0, 1 - wd / 110) * (.07 + .04 * Math.sin(G.time * .7)) : 0, t, .5);   // waves that swell and fall
+  humGain.gain.setTargetAtTime(out ? (wd > 40 ? .035 : .015) : 0, t, .8);
+  if (out && G.time > birdT) {
+    birdT = G.time + 1.2 + Math.random() * 3.5;
+    if (day && !(G.wet > .4)) {
+      if (wd < 70 && Math.random() < .5) { const f = 1500 + Math.random() * 300; gull(f); }   // a seagull
+      else { const f = 2800 + Math.random() * 1400, n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) chirp(f * (1 + i * .04), .05 + Math.random() * .03, .018, i * .09); }
+    } else if (!day && !(G.wet > .4)) { for (let i = 0; i < 6; i++) tone(4300, .03, .008, i * .06); }   // crickets
+  }
+}
+function chirp(f, dur, gain, when) { if (!ctx) return; const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + (when || 0); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.35, t + dur); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.001, t + dur); o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .02); }
+function gull(f) { if (!ctx) return; const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime; o.type = 'sawtooth'; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; o.frequency.setValueAtTime(f * .8, t); o.frequency.linearRampToValueAtTime(f * 1.3, t + .18); o.frequency.linearRampToValueAtTime(f * .9, t + .5); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.022, t + .06); g.gain.exponentialRampToValueAtTime(.001, t + .55); o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + .6); }
 /* ---------- car radio: three made-up stations, generated note by note ---------- */
 const ST = [
   { name: 'Radio off' },

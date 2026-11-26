@@ -1333,11 +1333,11 @@ export function buildWheel(scene) {
 /* ---------- sky, sun, day and night ---------- */
 export function buildSky(scene, renderer) {
   const C = h => new T.Color(h);
-  const skyU = { top: { value: C(0) }, bot: { value: C(0) } };
+  const skyU = { top: { value: C(0) }, bot: { value: C(0) }, sd: { value: new T.Vector3(0, 1, 0) }, sc: { value: C(0xffffff) }, gl: { value: 0 } };
   const sky = new T.Mesh(new T.SphereGeometry(1900, 32, 16), new T.ShaderMaterial({
     side: T.BackSide, fog: false, depthWrite: false, uniforms: skyU,
     vertexShader: 'varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'uniform vec3 top;uniform vec3 bot;varying vec3 p;void main(){float h=clamp(normalize(p).y*1.5,0.,1.);gl_FragColor=vec4(mix(bot,top,pow(h,.55)),1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'
+    fragmentShader: 'uniform vec3 top;uniform vec3 bot;uniform vec3 sd;uniform vec3 sc;uniform float gl;varying vec3 p;void main(){vec3 n=normalize(p);float h=clamp(n.y*1.5,0.,1.);vec3 col=mix(bot,top,pow(h,.55));float d=max(dot(n,normalize(sd)),0.);col+=sc*gl*(pow(d,6.)*.55+pow(d,60.)*.9)*(1.-.6*h);col+=sc*gl*.25*pow(1.-clamp(n.y,0.,1.),5.)*(.4+.6*d);gl_FragColor=vec4(col,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'
   }));
   sky.renderOrder = -10; scene.add(sky);
   const sg = new T.BufferGeometry(), sa = [];
@@ -1346,6 +1346,8 @@ export function buildSky(scene, renderer) {
   const starMat = new T.PointsMaterial({ color: 0xffffff, size: 1.8, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
   const stars = new T.Points(sg, starMat); stars.renderOrder = -9; scene.add(stars);
   const ball = new T.Mesh(new T.SphereGeometry(40, 20, 14), new T.MeshBasicMaterial({ color: 0xffffff, fog: false })); ball.renderOrder = -8; scene.add(ball);
+  const hc = document.createElement('canvas'); hc.width = hc.height = 128; { const x = hc.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.18, 'rgba(255,255,255,.75)'); g.addColorStop(.5, 'rgba(255,255,255,.18)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); }
+  const halo = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(hc), color: 0xffffff, transparent: true, depthWrite: false, depthTest: false, fog: false, blending: T.AdditiveBlending })); halo.scale.set(520, 520, 1); halo.renderOrder = -7; scene.add(halo);
   const hemi = new T.HemisphereLight(0xffffff, 0x555555, 1); scene.add(hemi);
   const sun = new T.DirectionalLight(0xffffff, 3); sun.castShadow = true;
   const sm = MOBILE ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
@@ -1384,6 +1386,9 @@ export function buildSky(scene, renderer) {
     sky.position.copy(camera.position); stars.position.copy(camera.position);
     sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(dir, 260);
     ball.position.copy(camera.position).addScaledVector(dir, 1750);
+    const lowSun = isDay ? 1 - Math.min(1, el * 3.2) : 0;   // 1 when the sun sits on the horizon
+    skyU.sd.value.copy(dir); skyU.sc.value.copy(S.ball); skyU.gl.value = isDay ? .35 + .65 * lowSun : .12;
+    halo.position.copy(ball.position); halo.material.color.copy(S.sun); halo.material.opacity = isDay ? .5 + .4 * lowSun : .18; halo.scale.setScalar(isDay ? 420 + 520 * lowSun : 300);
     for (const c of clouds) { c.position.x += dt * 2.5; if (c.position.x > 1000) c.position.x = -1000; }
   };
 }

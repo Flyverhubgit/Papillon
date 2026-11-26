@@ -6,7 +6,7 @@ import { G, MOBILE, COLS, BIGS, HILLS, landHeight, BRG, propsNear, inHedge, SLAB
 import { releaseAI, crime, toughOf, dentCar } from './actors.js';
 
 let R = null, world = null, ok = false, acc = 0;
-const STEP = 1 / 60, tmpQ = new T.Quaternion(), tmpV = new T.Vector3(), UP = new T.Vector3(0, 1, 0);
+const STEP = 1 / 60, tmpQ = new T.Quaternion(), tmpV = new T.Vector3(), tmpV2 = new T.Vector3(), UP = new T.Vector3(0, 1, 0);
 const GALL = 0xffffffff, GK = (2 << 16) | (0xffff & ~4), GP = (4 << 16) | (0xffff & ~2);
 const cars = new Map();   // game car -> its body. kind 'kin' = follows the game (traffic on its lane), 'dyn' = a free body; vc = wheels and engine
 const RAD = MOBILE ? 55 : 90;
@@ -90,7 +90,9 @@ G.physDrive = (c, thr, steer, hb, dt) => {
   const ang = -steer * (sp.bike ? .42 / (1 + av * .16) : .6 / (1 + av * .085));   // less lock the faster you go, and a motorbike turns by leaning more than by steering
   e.steer += (ang - e.steer) * Math.min(1, dt * 8); vc.setWheelSteering(0, e.steer); vc.setWheelSteering(1, e.steer);
   const wet = 1 - .3 * (G.wet || 0);
-  for (let i = 0; i < 4; i++) { const rear = i >= 2; vc.setWheelEngineForce(i, rear ? engine * .5 * ENG : 0); vc.setWheelBrake(i, rear && hb ? e.m * .05 : brake); vc.setWheelFrictionSlip(i, (rear ? (hb ? 1.0 : 2.0) : 2.3) * wet); }
+  for (let i = 0; i < 4; i++) { const rear = i >= 2; vc.setWheelEngineForce(i, rear ? engine * .5 * ENG : 0); vc.setWheelBrake(i, rear && hb ? e.m * .05 : brake); vc.setWheelFrictionSlip(i, (rear ? (hb ? 1.0 : 3.0) : 3.4) * wet); }
+  // extra grip: the sideways part of the speed fades out by itself (not with the handbrake, so you can still drift on purpose)
+  if (!sp.bike && !sp.tank && !hb && av > 3) { tmpV2.set(0, 0, 1).applyQuaternion(tmpQ); const lat = v.x * tmpV2.x + v.y * tmpV2.y + v.z * tmpV2.z, k = Math.min(.6, dt * 5 * (1 - .3 * (G.wet || 0))); e.body.setLinvel({ x: v.x - tmpV2.x * lat * k, y: v.y, z: v.z - tmpV2.z * lat * k }, true); }
   if (sp.bike) c.leanT = steer * Math.min(1, av / 14) * .5;   // a motorbike leans into the bend
   if (sp.tank && Math.abs(steer) > .1) { const w = e.body.angvel(); e.body.setAngvel({ x: w.x, y: -steer * (fwd < -.5 ? -1 : 1) * 1.0, z: w.z }, true); }   // a tank turns on its tracks, even standing still
   e.driven = G.time; if (e.body.isSleeping()) e.body.wakeUp();
