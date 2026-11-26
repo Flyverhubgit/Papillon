@@ -171,8 +171,11 @@ const PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 function unb64b(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
 // the FBX loader prints one warning for every vertex with too many bone weights (thousands per character): that floods the console and makes the game stutter. Drop that one message while loading.
 function quietParse(fn) { const w = console.warn; console.warn = (...a) => { if (typeof a[0] === 'string' && a[0].indexOf('skinning weights') >= 0) return; w.apply(console, a); }; try { return fn(); } finally { console.warn = w; } }
+// which people the game uses: the original figures (default) or the realistic ones; the choice is kept in the browser and changed in the Statistics menu
+export function peopleStyle() { try { return localStorage.getItem('papillon.people') === 'real' ? 'real' : 'classic'; } catch (e) { return 'classic'; } }
+export function togglePeople() { try { localStorage.setItem('papillon.people', peopleStyle() === 'real' ? 'classic' : 'real'); } catch (e) { } }
 function buildXP(xp, gunGeo, gunMat) {
-  if (!xp) return;
+  if (!xp || peopleStyle() !== 'real') return;
   const mgr = new T.LoadingManager(), clipsOf = {}; mgr.setURLModifier(() => PIXEL);
   const mk = (e, sex, key) => {
     const scene = quietParse(() => new FBXLoader(mgr).parse(unb64b(e.fbx).buffer, '')), tex = new T.TextureLoader().load(e.tex); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
@@ -200,6 +203,7 @@ function buildXP(xp, gunGeo, gunMat) {
   XP.c = XP.c.filter(r => PT[r.key]);
 }
 // copy an animation from the old skeleton to the Mixamo one: every bone turns by the same amount (in world space) as its partner
+const NOSH = /Shoulder$/;
 function retargetXP(ref, srcT) {
   const tgt = ref.scene, src = SkeletonUtils.clone(srcT.scene); src.updateMatrixWorld(true); tgt.updateMatrixWorld(true);
   const sb = {}, tOrder = []; src.traverse(o => { if (o.isBone) sb[o.name] = o; }); tgt.traverse(o => { if (o.isBone) tOrder.push(o); });
@@ -229,14 +233,14 @@ function retargetXP(ref, srcT) {
   const out = {}, mx = new T.AnimationMixer(src), parentW0 = {}; for (const o of tOrder) parentW0[o.name] = o.parent && !o.parent.isBone ? wq(o.parent) : null;
   for (const name in srcT.clips) {
     const clip = srcT.clips[name], n = Math.max(2, Math.ceil(clip.duration * 30) + 1), times = new Float32Array(n), vals = {}, pos = new Float32Array(n * 3);
-    for (const o of tOrder) if (MXMAP[o.name] && sb[MXMAP[o.name]]) vals[o.name] = new Float32Array(n * 4);
+    for (const o of tOrder) if (MXMAP[o.name] && sb[MXMAP[o.name]] && !NOSH.test(o.name)) vals[o.name] = new Float32Array(n * 4);   // the collar bones stay as modelled: driving them made the shoulders cave in
     mx.stopAllAction(); mx.uncacheClip(clip); const act = mx.clipAction(clip); act.play();
     const WF = {}, tmp = new T.Vector3();
     for (let i = 0; i < n; i++) {
       const t = Math.min(clip.duration, i / 30); times[i] = t; mx.setTime(t); src.updateMatrixWorld(true);
       for (const o of tOrder) {
         const s = sb[MXMAP[o.name]], pw = o.parent && o.parent.isBone ? WF[o.parent.name] : parentW0[o.name];
-        let W; if (s && S0[o.name]) { W = wq(s).multiply(S0[o.name].clone().invert()).multiply(W0[o.name]); } else W = (pw || Q()).clone().multiply(L0[o.name]);
+        let W; if (s && S0[o.name] && !NOSH.test(o.name)) { W = wq(s).multiply(S0[o.name].clone().invert()).multiply(W0[o.name]); } else W = (pw || Q()).clone().multiply(L0[o.name]);
         if (ABD[o.name]) W = ABD[o.name].clone().multiply(W);   // arms held a little away from the body, so the sleeves and shoulders do not pinch in
         WF[o.name] = W;
         if (vals[o.name]) { const l = (pw || Q()).clone().invert().multiply(W); l.toArray(vals[o.name], i * 4); }
@@ -949,7 +953,7 @@ function occFigure(shirt) {
 const occPool = { civ: [], cop: [] }; let occMade = 0;
 function takeOcc(cop) {
   const pool = occPool[cop ? 'cop' : 'civ']; let n = pool.pop();
-  if (!n) { if (occMade >= 16 || !XP.m.length) return null; occMade++; n = newPerson(cop ? copKey() : civKey()); n.cop = cop; n.base = n.h.scale.x; n.h.rotation.y = Math.PI / 2; anim(n, 'Drive'); n.mixer.update(.4); }
+  if (!n) { if (occMade >= 16) return null; occMade++; n = newPerson(cop ? copKey() : civKey()); n.cop = cop; n.base = n.h.scale.x; n.h.rotation.y = Math.PI / 2; anim(n, 'Drive'); n.mixer.update(.4); }
   return n;
 }
 function freeOcc(c) { if (!c.occ) return; for (const n of c.occ) { if (n.real) { n.h.visible = false; c.g.remove(n.h); occPool[n.cop ? 'cop' : 'civ'].push(n); } else c.g.remove(n); } c.occ = null; }

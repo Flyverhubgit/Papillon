@@ -49,7 +49,7 @@ export function leaveRoom() {
 }
 
 // a person lying on his back on a bed: tipped over from the feet, so the head lands on the pillow (the head end is towards the back wall)
-function lieOn(n, x, y, z) { playAnim(n, 'Idle'); n.h.rotation.order = 'YXZ'; n.h.rotation.x = -Math.PI / 2; n.h.position.set(x, y, z); }
+function lieOn(n, x, y, z, dz) { playAnim(n, 'Idle'); n.h.rotation.order = 'YXZ'; n.h.rotation.x = -Math.PI / 2; n.h.position.set(x, y, z); }
 export function setupInteriors(scene, menus) {
   /* ----- gun shop ----- */
   {
@@ -96,7 +96,7 @@ export function setupInteriors(scene, menus) {
     // hospital staff and patients: a doctor by the beds, a nurse crossing the room, someone in a bed, people waiting
     makeNPC('pm', { skin: 0xe0ac7e, hair: 0x8a8a8a, top: 0xf6f6f2, bottom: 0x3f6f8f }, cx - 2.4, cz - 1.2, -Math.PI / 2);
     makeNPC('pw', { skin: 0x8d5524, hair: 0x1c1410, top: 0x6fc0c0, bottom: 0x6fc0c0 }, cx - .6, cz + .9, Math.PI * .75);
-    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x7a2f1a, top: 0xbfd0d0, bottom: 0xbfd0d0 }, cx - 3.6, cz + 1.7, 0); lieOn(n, cx - 3.6, .76, cz + 2.3); }   // lying on the bed, head on the pillow
+    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x7a2f1a, top: 0xbfd0d0, bottom: 0xbfd0d0 }, cx - 3.6, cz + 1.7, 0); lieOn(n, cx - 3.6, .76, cz + 2.3, .6); }   // lying on the bed, head on the pillow
     for (const k of [0, 2]) { const n = makeNPC(k ? 'pw' : 'pm', { skin: k ? 0xc68642 : 0xf1c9a5, hair: 0x101010, top: k ? 0xd98a1f : 0x30343f, bottom: null }, cx + 3.82, cz + .2 + k * .7, -Math.PI / 2); playAnim(n, 'Sit'); }
     const mk = [addMarker({ x: cx + 1.8, z: cz - .8, type: 'in', icon: '', text: 'TREATMENT', color: 0xd9463c, indoor: true, onEnter: menus.clinic }), addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
     G.rooms.clinic = { title: 'Papillon Hospital', spawn: { x: cx - 1.6, z: cz + 1.6 }, markers: mk };
@@ -112,7 +112,7 @@ export function setupInteriors(scene, menus) {
     box(g, 1.6, .75, .7, dark, 3.3, .38, 1.6, true); box(g, .5, .36, .5, navy, 3.3, .18, 2.5);                                               // the guard's desk and chair
     makeNPC(copKey(), { skin: 0xe0ac7e, hair: 0x3a2a1a, top: 0x1b2a55, bottom: 0x1b2a55 }, cx + 1.3, cz + 2.4, -Math.PI / 2);                 // an officer on guard by the door
     makeNPC('pw', { skin: 0xc68642, hair: 0x101010, top: 0xf2f2ee, bottom: 0xf2f2ee }, cx - 2.1, cz - .6, Math.PI / 2);                   // the doctor
-    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x101010, top: 0xcfe0ee, bottom: 0xcfe0ee }, cx + 1.0, cz - 2.3, 0); lieOn(n, cx + 1.0, .78, cz - 1.2); }   // somebody else they brought in, lying in the bed
+    { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x101010, top: 0xcfe0ee, bottom: 0xcfe0ee }, cx + 1.0, cz - 2.3, 0); lieOn(n, cx + 1.0, .78, cz - 1.2, 1.1); }   // somebody else they brought in, lying in the bed
     const mk = [addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];
     G.rooms.ward = { title: 'Police Hospital', spawn: { x: cx - 1.1, z: cz - .3 }, markers: mk };
   }
