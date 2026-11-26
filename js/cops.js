@@ -1,7 +1,7 @@
 // Papillon - police officers on foot. Police cars stop near you and an officer gets out:
 // at one or two stars he runs up and arrests you, from three stars he keeps his distance and shoots.
 import { G, collide, rr, rnd, pick, onRoad, kerbH } from './world.js';
-import { makeNPC, playAnim, clearLine, crime, lookOptions, copKey } from './actors.js';
+import { makeNPC, playAnim, clearLine, crime, lookOptions, copKey, dressUp } from './actors.js';
 
 G.cops = [];
 const pool = [], cp = { x: 0, z: 0 };
@@ -12,7 +12,7 @@ function newCop() {
   if (!c) {
     const o = lookOptions('m'), f = a => a.find(n => n.startsWith('Suit_')) || a.find(n => n.startsWith('Casual_')) || a[0];
     const key = copKey(), p = makeNPC(key, { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x1b2a55, bottom: 0x141c33 }, 0, 0, 0);
-    G.npcs.pop();   // officers are moved and animated here
+    dressUp(p, 'police'); G.npcs.pop();   // officers are moved and animated here
     c = { p };
   }
   c.p.h.visible = true; c.indoor = false; return c;

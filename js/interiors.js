@@ -1,7 +1,7 @@
 // Papillon - rooms you can walk into: the gun shop and your flat
 import * as T from 'three';
 import { G, addBox, collide } from './world.js';
-import { makeNPC, playAnim, copKey } from './actors.js';
+import { makeNPC, playAnim, copKey, dressUp } from './actors.js';
 import { addMarker, markers, bankMenu, vaultUse } from './shops.js';
 
 const M = (c, o) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: .85 }, o || {}));
@@ -110,7 +110,7 @@ export function setupInteriors(scene, menus) {
     for (const bx of [-3.2, -1.1, 1.0]) { box(g, 1.0, .45, 2.1, white, bx, .32, -2.0, true); box(g, .95, .1, 1.5, sheet, bx, .6, -1.75); box(g, .9, .12, .5, white, bx, .63, -2.75); box(g, 1.0, .9, .06, steel, bx, .7, -3.05); box(g, .04, 1.7, .04, steel, bx + .62, .85, -2.7); box(g, .3, .04, .04, steel, bx + .5, 1.7, -2.7); }   // three beds with a drip stand each
     for (let k = 0; k < 7; k++) box(g, .05, 1.3, .05, steel, 3.0 + k * .16, 1.9, -d / 2 + .06); box(g, 1.2, .06, .08, steel, 3.48, 1.25, -d / 2 + .06); box(g, 1.2, .06, .08, steel, 3.48, 2.55, -d / 2 + .06); box(g, 1.1, 1.3, .02, M(0x9fd0ee, { emissive: 0x6fa8d0, emissiveIntensity: .5 }), 3.48, 1.9, -d / 2 + .03);   // a barred window
     box(g, 1.6, .75, .7, dark, 3.3, .38, 1.6, true); box(g, .5, .36, .5, navy, 3.3, .18, 2.5);                                               // the guard's desk and chair
-    makeNPC(copKey(), { skin: 0xe0ac7e, hair: 0x3a2a1a, top: 0x1b2a55, bottom: 0x1b2a55 }, cx + 1.3, cz + 2.4, -Math.PI / 2);                 // an officer on guard by the door
+    dressUp(makeNPC(copKey(), { skin: 0xe0ac7e, hair: 0x3a2a1a, top: 0x1b2a55, bottom: 0x1b2a55 }, cx + 1.3, cz + 2.4, -Math.PI / 2), 'police');                 // an officer on guard by the door
     makeNPC('pw', { skin: 0xc68642, hair: 0x101010, top: 0xf2f2ee, bottom: 0xf2f2ee }, cx - 2.1, cz - .6, Math.PI / 2);                   // the doctor
     { const n = makeNPC('pm', { skin: 0xf1c9a5, hair: 0x101010, top: 0xcfe0ee, bottom: 0xcfe0ee }, cx + 1.0, cz - 2.3, 0); lieOn(n, cx + 1.0, .78, cz - 1.2, 1.1); }   // somebody else they brought in, lying in the bed
     const mk = [addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })];

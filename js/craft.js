@@ -1,7 +1,7 @@
 // Papillon - boats and the helicopter
 import * as T from 'three';
 import { G, HARB, COAST, inWater, landHeight, solidHeight, hulls, AIRPORT, JAIL, isleY } from './world.js';
-import { puff, blast, clearLine, newPerson, copKey, playAnim } from './actors.js';
+import { puff, blast, clearLine, newPerson, copKey, playAnim, copLook, dressUp } from './actors.js';
 import { mergeStatic } from './merge.js';
 
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -278,7 +278,7 @@ function newPoliceBoat(x, z, h) {
   const g = b.g, navy = M(0x141c33), skin = M(0xe0ac7e), vest = M(0xe6d21f);
   b.bar = [box(.28, .16, .55, new T.MeshBasicMaterial({ color: 0xff2a2a }), .6, 1.48, .5), box(.28, .16, .55, new T.MeshBasicMaterial({ color: 0x2a6bff }), .6, 1.48, -.5)]; g.add(b.bar[0]); g.add(b.bar[1]);
   for (const [ox, oz] of [[-1.3, .45], [-1.75, -.45]]) {   // two real officers in the stern, guns up (a still pose: they only need to look right)
-    try { const n = newPerson(copKey()); n.h.position.set(ox, .17, oz); n.h.rotation.y = Math.PI / 2; playAnim(n, 'Aim1'); n.mixer.update(.05); if (n.guns && n.guns.pistol) n.guns.pistol.visible = true; n.h.visible = true; g.add(n.h); b.crew = (b.crew || []).concat(n); } catch (e) { }
+    try { const n = newPerson(copKey(), copLook()); dressUp(n, 'police'); n.h.position.set(ox, .17, oz); n.h.rotation.y = Math.PI / 2; playAnim(n, 'Aim1'); n.mixer.update(.05); if (n.guns && n.guns.pistol) n.guns.pistol.visible = true; n.h.visible = true; g.add(n.h); b.crew = (b.crew || []).concat(n); } catch (e) { }
   }
   b.hp = 160;   // a sturdy launch: more than a car
   G.targets.push(b.tg = { get x() { return b.x; }, get z() { return b.z; }, y: -1.3, top: 3.4, r: 2.2, car: true, alive: () => pboats.includes(b) && !b.sunkT, hit: dmg => { b.hp -= dmg; b.cd = Math.min(b.cd, .3); } });

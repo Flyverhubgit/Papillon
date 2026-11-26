@@ -3,6 +3,7 @@ import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { smoothNormals } from './merge.js';
 import { G, MOBILE, inHedge, rnd, rr, pick, nodes, slots, doors, loops, loopPoint, loopParam, collide, solidAt, NODE_R, LANE, PARK_LAT, nearestNode, landHeight, ROUTES, BUS_LEGS, onRing, onRoad, lightGreen, benches, kerbH, wallAt, inWater } from './world.js';
 
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -156,6 +157,7 @@ export function prepPeople(models) {
     const parts = { Head: [], Body: [], Legs: [], Feet: [] }, box = new T.Box3();
     scene.traverse(o => { const m = PARTRE.exec(o.name); if (!m) return; parts[m[2] === 'Pants' ? 'Legs' : m[2]].push(o.name); if (m[1] === 'Casual') box.expandByObject(o); });
     const h = box.max.y - box.min.y;
+    smoothNormals(scene);   // soft, rounded figures
     PT[key] = { scene, clips, parts, k: (key === 'pw' ? 1.68 : 1.8) / h, y: -box.min.y };
   }
   try { buildXP(models.xp, gunGeo, gunMat); } catch (e) { console.warn('realistic people failed', e); XP.m.length = XP.f.length = 0; }
@@ -254,7 +256,25 @@ function retargetXP(ref, srcT) {
   return { clips: out, hold };
 }
 export const xpKeys = sex => XP[sex === 'w' || sex === 'f' ? 'f' : 'm'].map(e => e.key);
-G.syncOccDBG = c => syncOcc(c); G.newPersonDBG = (k, l) => newPerson(k, l); G.animDBG = (p, n, o, t) => anim(p, n, o, t); G.xpKeysDBG = sx => xpKeys(sx);
+G.smoothDBG = r => smoothNormals(r); G.dressDBG = (n, k) => dressUp(n, k); G.lookOptionsDBG = s => lookOptions(s); G.syncOccDBG = c => syncOcc(c); G.newPersonDBG = (k, l) => newPerson(k, l); G.animDBG = (p, n, o, t) => anim(p, n, o, t); G.xpKeysDBG = sx => xpKeys(sx);
+// uniforms for the classic figures: a cap or helmet and a badge, so police, fire crews and soldiers are easy to tell apart
+export function copLook() { const o = lookOptions('m'), f = a => a.find(n => n.startsWith('Suit_')) || a.find(n => n.startsWith('Casual_')) || a[0]; return { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x1b2a55, bottom: 0x141c33 }; }
+const uMat = {}, uM = (c, rough) => uMat[c] || (uMat[c] = new T.MeshStandardMaterial({ color: c, roughness: rough === undefined ? .6 : rough, metalness: .1 }));
+export function dressUp(n, kind) {
+  if (!n || !n.h || n.dressed || n.h.getObjectByName('mixamorigHips')) return; n.dressed = kind;
+  const head = n.h.getObjectByName('Head'), chest = n.h.getObjectByName('Chest') || n.h.getObjectByName('Torso'); if (!head) return;
+  n.h.updateMatrixWorld(true); const ws = head.getWorldScale(new T.Vector3()).x || 1, u = 1 / ws;   // bones carry the figure's own scale: build in metres
+  const add = (par, mesh, x, y, z) => { const pu = 1 / (par.getWorldScale(new T.Vector3()).x || 1); mesh.scale.multiplyScalar(pu); mesh.position.set(x * pu, y * pu, z * pu); mesh.castShadow = true; par.add(mesh); return mesh; };
+  const cyl = (r, h, c, seg) => new T.Mesh(new T.CylinderGeometry(r, r * 1.02, h, seg || 14), uM(c)), box = (w, h, d, c) => new T.Mesh(new T.BoxGeometry(w, h, d), uM(c));
+  if (kind === 'police') {
+    add(head, cyl(.125, .07, 0x16224a), 0, .21, -.01); add(head, cyl(.13, .02, 0x0d1530), 0, .175, -.01); add(head, box(.2, .012, .1, 0x0a0f22), 0, .175, .12); add(head, box(.04, .035, .01, 0xe3b53a), 0, .215, .125);
+    if (chest) { add(chest, box(.05, .06, .012, 0xe3b53a), .09, .06, .13); }
+  } else if (kind === 'fire') {
+    const dome = new T.Mesh(new T.SphereGeometry(.135, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), uM(0xf2c315)); add(head, dome, 0, .15, -.01); add(head, cyl(.15, .015, 0xf2c315, 16), 0, .15, -.01); add(head, box(.05, .05, .1, 0xd9a60c), 0, .26, -.01);
+  } else if (kind === 'army') {
+    const dome = new T.Mesh(new T.SphereGeometry(.14, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), uM(0x4a5a2e)); add(head, dome, 0, .15, -.01); add(head, cyl(.155, .015, 0x3c4a25, 16), 0, .15, -.01);
+  }
+}
 export const copKey = () => XP.c.length ? XP.c[Math.floor(rnd() * XP.c.length)].key : 'pm';
 export const civKey = () => { const sex = rnd() < .5 ? 'm' : 'f', l = XP[sex]; if (!l.length) return sex === 'm' ? 'pm' : 'pw'; return l[Math.floor(rnd() * l.length)].key; };
 const SKIN = [0xf1c9a5, 0xe0ac7e, 0xc68642, 0x8d5524, 0x6b3f1d, 0xffdbb5, 0xd9a074];
@@ -263,6 +283,10 @@ const CLOTH = [0x2f6fde, 0xc23b3b, 0x2f8f5a, 0xe0b23a, 0xf2f0ea, 0x22242a, 0x7a4
 const KEEPMAT = /^(Eye|White|Black|Gold|Earrings|Metal|Metal_Dark|Visor|Swat|Swat_Black|Worker_Vest|Brown|Brown2|Brown_02|DarkBrown|LightBrown|Beige)$/;
 // look: {sex, head, body, legs, feet (part names), skin, hair, top, bottom (colours; null keeps the original)}.
 // Without a look the person is a random mix.
+// the women: fuller hips and bust with a slimmer waist (the bones are scaled; each one cancels what the bone above it did)
+const WE = { Hips: [1.28, 1, 1.2], Abdomen: [.88, 1, 1], Torso: [1, 1, 1.04], Chest: [1.02, 1, 1.2], Neck: [1, 1, 1], Head: [1, 1, 1], ShoulderL: [1, 1, 1], ShoulderR: [1, 1, 1], UpperLegL: [1.05, 1, 1.05], UpperLegR: [1.05, 1, 1.05] };
+const WP = { Abdomen: 'Hips', Torso: 'Abdomen', Chest: 'Torso', Neck: 'Chest', ShoulderL: 'Chest', ShoulderR: 'Chest', UpperLegL: 'Hips', UpperLegR: 'Hips' };
+function shapeWoman(m) { const bn = {}; m.traverse(o => { if (o.isBone) bn[o.name] = o; }); for (const k in WE) { const b = bn[k]; if (!b) continue; const pe = WP[k] ? WE[WP[k]] : [1, 1, 1], e = WE[k]; b.scale.set(e[0] / pe[0], e[1] / pe[1], e[2] / pe[2]); } }
 export function newPerson(key, look) {
   let tint = null;
   if ((key === 'pm' || key === 'pw') && XP.m.length) {   // everybody is one of the realistic people; a coloured top (gang, prisoner) tints the clothes
@@ -270,6 +294,7 @@ export function newPerson(key, look) {
     if (look && !pickd && look.top != null) tint = look.top;
   }
   const t = PT[key], m = SkeletonUtils.clone(t.scene), keep = {}, mats = {};
+  if (key === 'pw') shapeWoman(m);
   if (t.x) {
     m.scale.multiplyScalar(t.k); m.position.y = t.y * t.k; const h = new T.Group(); h.add(m); G.scene.add(h);
     if (tint != null) { const mat = t.mat.clone(); mat.color.set(0xffffff).lerp(new T.Color(tint), .55); m.traverse(o => { if (o.isMesh) o.material = mat; }); }
@@ -953,7 +978,7 @@ function occFigure(shirt) {
 const occPool = { civ: [], cop: [] }; let occMade = 0;
 function takeOcc(cop) {
   const pool = occPool[cop ? 'cop' : 'civ']; let n = pool.pop();
-  if (!n) { if (occMade >= 16) return null; occMade++; n = newPerson(cop ? copKey() : civKey()); n.cop = cop; n.base = n.h.scale.x; n.h.rotation.y = Math.PI / 2; anim(n, 'Drive'); n.mixer.update(.4); }
+  if (!n) { if (occMade >= 16) return null; occMade++; n = newPerson(cop ? copKey() : civKey(), cop ? copLook() : null); if (cop) dressUp(n, 'police'); n.cop = cop; n.base = n.h.scale.x; n.h.rotation.y = Math.PI / 2; anim(n, 'Drive'); n.mixer.update(.4); }
   return n;
 }
 function freeOcc(c) { if (!c.occ) return; for (const n of c.occ) { if (n.real) { n.h.visible = false; c.g.remove(n.h); occPool[n.cop ? 'cop' : 'civ'].push(n); } else c.g.remove(n); } c.occ = null; }

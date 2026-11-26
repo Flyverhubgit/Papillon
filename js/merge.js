@@ -27,3 +27,15 @@ export function mergeStatic(g) {
   }
   return g;
 }
+
+// soft, rounded people: the figures come with flat faces; this gives each model smooth normals (done once per model, shared by everybody who wears it)
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+export function smoothNormals(root) {
+  const done = new Map();
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) { if (m && m.flatShading) { m.flatShading = false; m.needsUpdate = true; } }
+    if (!done.has(o.geometry)) { try { const g = o.geometry.clone(); g.deleteAttribute('normal'); const s = mergeVertices(g, 1e-4); s.computeVertexNormals(); done.set(o.geometry, s); } catch (e) { done.set(o.geometry, o.geometry); } }
+    o.geometry = done.get(o.geometry);
+  });
+}
