@@ -606,6 +606,19 @@ function bench(x, z, ry) { benches.push({ x, z, ry, used: null, pr: null }); ben
 // small things on the pavement: a fire hydrant, a litter bin, a post box, a newspaper box, a road sign. All of them break
 const HYD = col(0xc8352b), BINC = col(0x3d5a48), POSTC = col(0xe0b21c), NEWSC = col(0x2f62b5), SIGNP = col(0x8d9299);
 function hydrant(x, z) { prop('hydrant', x, z, 4, [[x, z, .28]], () => { PB.setT(x, 0, z, 0); PB.box(HYD, .3, .7, .3, 0, .47, 0); PB.box(HYD, .4, .12, .4, 0, .86, 0); PB.box(HYD, .56, .16, .16, 0, .58, 0); PB.box(DARK, .36, .12, .36, 0, .18, 0); }); }
+/* ---------- everyday street dressing: litter, rubbish bags, planters, cafe tables, dumpsters, scooters, boxes (all fixed; nothing here uses the random numbers, so the rest of the city stays the same) ---------- */
+const LTR = [col(0xf4f1e6), col(0xc9c4b0), col(0xb33a2e), col(0xd8d8d8), col(0x7a5a3a), col(0x2d6a9f)], BAGC = col(0x1b1c20), BAGB = col(0x2c3b52), CARD = col(0xb08a5a), POT = col(0xb8623a), LEAFQ = col(0x4f8a3f), LEAFQQ2 = col(0x6aa84a), DUMP = col(0x2f6a4a), LID = col(0x23252a), TABC = col(0xe9e3d3), CHAIRC = col(0x7a4b32), SCOOT = [col(0xc9463c), col(0x2f6a9f), col(0xe2bd2a), col(0xd8d8d8)], BOLL = col(0x9a9d9f);
+const hr = (a, b) => hash2(a * 12.9898 + b * 78.233, a * 3.17 - b * 1.91);
+function litter(x, z) { for (let k = 0; k < 7; k++) { const a = hr(x + k, z), b = hr(z, x - k * 2); FB.setT(x + (a - .5) * 3, 0, z + (b - .5) * 1.4, a * 6.28); const t = (a * 10 | 0) % 4;
+  if (t === 0) FB.box(LTR[0], .2, .012, .15, 0, .03, 0); else if (t === 1) FB.box(LTR[(b * 6 | 0) % 6], .065, .12, .065, 0, .08, 0); else if (t === 2) FB.box(LTR[4], .28, .08, .2, 0, .06, 0); else FB.box(BAGB, .22, .05, .17, 0, .04, 0); } }
+function trashBags(x, z, ry) { FB.setT(x, 0, z, ry); FB.box(BAGC, .42, .38, .36, 0, .22, 0); FB.box(BAGB, .38, .34, .34, .46, .2, .06); FB.box(BAGC, .36, .3, .3, .18, .55, -.04); FB.box(BAGC, .3, .22, .28, -.3, .15, .3); }
+function planter(x, z) { FB.setT(x, 0, z, 0); FB.box(POT, .56, .46, .56, 0, .25, 0); FB.box(LEAFQ, .5, .38, .5, 0, .62, 0); FB.box(LEAFQQ2, .36, .3, .36, .04, .88, -.03); }
+function cafeTable(x, z, ry) { FB.setT(x, 0, z, ry); FB.box(IRON, .08, .72, .08, 0, .38, 0); FB.box(TABC, .7, .05, .7, 0, .76, 0); for (const sx of [-1, 1]) { FB.box(CHAIRC, .42, .05, .42, sx * .78, .46, 0); FB.box(CHAIRC, .06, .42, .42, sx * .78 + sx * .19, .68, 0); for (const lx of [-1, 1]) for (const lz of [-1, 1]) FB.box(IRON, .04, .44, .04, sx * .78 + lx * .17, .22, lz * .17); }
+  FB.box(IRON, .05, 2.1, .05, 0, 1.4, 0); FB.box(AWN[(Math.abs(Math.round(x * 7 + z * 3))) % AWN.length], 2.0, .06, 2.0, 0, 2.42, 0); FB.box(TRIM, 1.2, .1, 1.2, 0, 2.5, 0); addCircle(x, z, .75); }
+function dumpster(x, z, ry) { FB.setT(x, 0, z, ry); FB.box(DUMP, 1.9, 1.05, .95, 0, .72, 0); FB.box(LID, 1.96, .1, 1.0, 0, 1.3, 0); FB.box(IRON, .1, .2, .1, -.8, .12, .4); FB.box(IRON, .1, .2, .1, .8, .12, .4); FB.box(IRON, .1, .2, .1, -.8, .12, -.4); FB.box(IRON, .1, .2, .1, .8, .12, -.4); addCircle(x, z, 1.0); }
+function scooter(x, z, ry, c) { FB.setT(x, 0, z, ry); FB.box(IRON, .16, .38, .16, .62, .22, 0); FB.box(IRON, .16, .38, .16, -.62, .22, 0); FB.box(c, .9, .22, .22, -.1, .36, 0); FB.box(IRON, .34, .08, .24, -.3, .56, 0); FB.box(c, .1, .6, .1, .5, .62, 0); FB.box(IRON, .08, .08, .5, .52, .96, 0); addCircle(x, z, .5); }
+function boxes(x, z, ry) { FB.setT(x, 0, z, ry); FB.box(CARD, .6, .45, .5, 0, .24, 0); FB.box(CARD, .5, .4, .45, .05, .67, .02); FB.box(CARD, .55, .38, .45, .7, .21, .1); }
+function bollards(x, z, ry) { FB.setT(x, 0, z, ry); for (let k = -1; k <= 1; k++) { FB.box(BOLL, .16, .75, .16, k * 1.1, .4, 0); FB.box(YELLOW, .17, .08, .17, k * 1.1, .62, 0); } }
 function bin(x, z) { prop('bin', x, z, 2.5, [[x, z, .32]], () => { PB.setT(x, 0, z, 0); PB.box(BINC, .5, .8, .5, 0, .52, 0); PB.box(DARK, .56, .1, .56, 0, .97, 0); PB.box(DARK, .3, .1, .06, 0, .78, .26); }); }
 function postbox(x, z, ry) { prop('postbox', x, z, 4, [[x, z, .34]], () => { PB.setT(x, 0, z, ry); PB.box(POSTC, .5, 1.15, .42, 0, .7, 0); PB.box(POSTC, .56, .1, .48, 0, 1.32, 0); PB.box(DARK, .3, .05, .04, 0, 1.05, .22); PB.box(WHITE, .22, .16, .03, 0, .75, .22); }); }
 function newsbox(x, z, ry) { prop('newsbox', x, z, 3, [[x, z, .32]], () => { PB.setT(x, 0, z, ry); PB.box(NEWSC, .46, .9, .4, 0, .57, 0); PB.box(GLASSC, .36, .34, .03, 0, .78, .21); PB.box(DARK, .1, .12, .1, 0, .06, 0); }); }
@@ -643,6 +656,10 @@ function roads() {
     if (!country) for (let s = 13, i = 0; s < Lg - 6; s += 19, i++) {   // small things on the pavement edge
       const hh = hash2(px * 1.7 + s * 3.3, pz * 2.9 - s), x = px + dx * s + rx * (RH + .75), z = pz + dz * s + rz * (RH + .75), ry = Math.atan2(-rx, -rz);
       if (hh < .16) hydrant(x, z); else if (hh < .42) bin(x, z); else if (hh < .52) postbox(x, z, ry); else if (hh < .62) newsbox(x, z, ry); else if (hh < .78) roadSign(x, z, ry, [HYD, NEWSC, col(0x2f9a57)][i % 3]);
+    }
+    if (!country) for (let s = 3, i = 0; s < Lg - 3; s += 3.9, i++) {   // everyday clutter along the pavements
+      const q = hr(px * 1.3 + s * 2.1, pz * .7 - s * 1.7), off = RH + 1.0 + hr(s, px + pz) * .9, x = px + dx * s + rx * off, z = pz + dz * s + rz * off, ry = Math.atan2(-rx, -rz);
+      if (q < .16) litter(x, z); else if (q < .21) trashBags(x, z, ry); else if (q < .26) planter(x, z); else if (q < .295 && !lite) cafeTable(px + dx * s + rx * (RH + 2.2), pz + dz * s + rz * (RH + 2.2), ry); else if (q < .32) dumpster(x, z, ry + Math.PI / 2); else if (q < .36) scooter(x, z, ry + Math.PI / 2, SCOOT[(q * 100 | 0) % 4]); else if (q < .39) boxes(x, z, ry); else if (q < .41) bollards(x, z, ry + Math.PI / 2);
     }
     if (!country) for (let s = 9; s < Lg - 8; s += 7.2) {
       const x = px + dx * s + rx * PARK_LAT, z = pz + dz * s + rz * PARK_LAT;

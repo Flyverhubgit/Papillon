@@ -764,17 +764,23 @@ const B = (w, h, d) => new T.BoxGeometry(w, h, d);
 function bikeGeo(o) {
   const paint = { p: [], n: [], c: [] }, rest = { p: [], n: [], c: [] }, lights = { p: [], n: [], c: [] }, w1 = C(0xffffff), cEng = C(0x5a5d63);
   const tyre = new T.CylinderGeometry(o.wr, o.wr, .15, 16).rotateX(Math.PI / 2), hub = new T.CylinderGeometry(o.wr * .55, o.wr * .55, .17, 10).rotateX(Math.PI / 2);
-  for (const x of [-.72, .72]) { collect(rest, tyre, tr(x, o.wr, 0), cTyre); collect(rest, hub, tr(x, o.wr, 0), cHub); }
+  const FX = o.chop ? 1.12 : .72;   // a chopper has a long front end
+  for (const x of [-.72, FX]) { collect(rest, tyre, tr(x, o.wr, 0), cTyre); collect(rest, hub, tr(x, o.wr, 0), cHub); }
   collect(paint, ext(roundShape([[-.12, .62], [-.08, .96], [.42, 1.0], [.6, .82], [.45, .62]], .1), .34), null, w1);
   collect(rest, ext(roundShape([[-.82, .8], [-.84, .9], [-.08, .93], [-.08, .8]], .04), .3, .03), null, cBlack);
   collect(paint, B(.46, .07, .2), tr(-.76, .74, 0), w1);
   collect(rest, B(.52, .34, .3), tr(.08, .46, 0), cEng);
   collect(rest, B(.75, .08, .08), tr(-.5, .38, .17), cHub);
-  const fk = new T.Matrix4().makeTranslation(.585, .7, 0).multiply(new T.Matrix4().makeRotationZ(.354));
-  for (const z of [.1, -.1]) collect(rest, B(.06, .78, .06), fk.clone().multiply(tr(0, 0, z)), cHub);
+  const fk = new T.Matrix4().makeTranslation(o.chop ? .72 : .585, o.chop ? .78 : .7, 0).multiply(new T.Matrix4().makeRotationZ(o.chop ? .7 : .354));
+  for (const z of [.1, -.1]) collect(rest, B(.06, o.chop ? 1.15 : .78, .06), fk.clone().multiply(tr(0, 0, z)), cHub);
+  if (o.chop) {   // ape-hanger bars, a sissy bar behind the seat and a fat rear tyre
+    for (const z of [.3, -.3]) { collect(rest, B(.05, .5, .05), tr(.3, 1.2, z * .8), cHub); collect(rest, B(.05, .05, .3), tr(.3, 1.45, z * .5), cBlack); }
+    collect(rest, B(.05, .62, .05), tr(-.88, 1.05, .16), cHub); collect(rest, B(.05, .62, .05), tr(-.88, 1.05, -.16), cHub); collect(rest, B(.05, .05, .36), tr(-.88, 1.36, 0), cHub);
+    collect(rest, B(.22, .5, .3), tr(-.72, .32, 0), cTyre);
+  } else
   collect(rest, B(.06, .06, .7), tr(.44, 1.1, 0), cBlack);
   collect(rest, B(.5, .05, .05), tr(-.5, .5, 0), cBlack);
-  collect(lights, B(.1, .18, .18), tr(.7, .98, 0), cHead); collect(lights, B(.05, .08, .16), tr(-1.0, .76, 0), cTail);
+  collect(lights, B(.1, .18, .18), tr(o.chop ? .98 : .7, o.chop ? .86 : .98, 0), cHead); collect(lights, B(.05, .08, .16), tr(-1.0, .76, 0), cTail);
   return { paint: finish(paint), rest: finish(rest), lights: finish(lights) };
 }
 // a tank: tracks, a low hull, a turret and a long barrel pointing forward
@@ -934,17 +940,21 @@ export function dentCar(c, dx, dz, n) {
 G.dentCar = dentCar;
 // How much damage each kind takes before it burns: a motorbike least, then cars, vans, the bus, and the big truck most.
 SPECS.bus.tough = 2.4; SPECS.truck.tough = 3.2;
+SPECS.garbage = Object.assign({}, SPECS.truck, { paintCol: 0x2f7a4a, max: 21, acc: 4.8, turn: 1.55, top: 3.0, roof: [[-3.75, 1.25], [-3.75, 3.0], [1.95, 3.0], [1.95, 2.48], [3.25, 2.48], [3.45, 2.34], [2.3, 2.34], [2.2, 1.25]], tough: 3.2 });
+SPECS.haul = Object.assign({}, SPECS.truck, { paintCol: 0xd86a1c, max: 23, acc: 5, turn: 1.5, top: 2.7, roof: [[-3.75, 1.25], [-3.75, 2.15], [1.95, 2.15], [1.95, 2.48], [3.25, 2.48], [3.45, 2.34], [2.3, 2.34], [2.2, 1.25]], tough: 3.4 });
 SPECS.firetruck = Object.assign({}, SPECS.truck, { paintCol: 0xc41a1f, max: 31, acc: 8, turn: 1.7, fire: true });
 export const toughOf = sp => (sp.tough || (sp.tank ? 9 : sp.bike ? .5 : sp.top > 2 ? 1.5 : 1)) * .7;   // every vehicle takes about 30% less than before; the order (bike, car, van, bus, truck, tank) is the same
 SPECS.bike = { L: 2.1, W: .7, wr: .32, lightY: .98, top: 1.2, max: 50, acc: 17, turn: 3.0, bike: true, offs: [0], wheels: [] };
+SPECS.chopper = Object.assign({}, SPECS.bike, { chop: true, L: 2.7, paintCol: 0x14141a, max: 44, acc: 15, turn: 2.6 });
 // motorbikes in traffic carry a rider you can see; he disappears with the bike or when the bike is no longer driven
 const riders = [];
-function dropRider(c) { if (c.rider) { c.rider.h.visible = false; riders.push(c.rider); c.rider = null; } }
+function dropRider(c) { if (c.rider) { c.rider.h.visible = false; if (c.type !== 'chopper') riders.push(c.rider); c.rider = null; } }
+const gangLook = () => Object.assign(defaultLook('m'), { skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x16161a, bottom: 0x1d2230 });
 function rideBike(c) {
   if (c.riderOff) { if (c.rider) dropRider(c); return; }   // the rider has got off to fight
-  if (c.ai && !c.rider) { let r = riders.pop(); if (!r) { r = newPerson(civKey()); r.h.rotation.order = 'YXZ'; } r.h.visible = true; c.rider = r; }
+  if (c.ai && !c.rider) { let r = riders.pop(); if (c.type === 'chopper') r = null; if (!r) { r = c.type === 'chopper' ? newPerson('pm', gangLook()) : newPerson(civKey()); r.h.rotation.order = 'YXZ'; } r.h.visible = true; c.rider = r; }
   if (!c.rider) return;
-  if (!c.ai || c.dead) { c.rider.h.visible = false; riders.push(c.rider); c.rider = null; return; }
+  if (!c.ai || c.dead) { c.rider.h.visible = false; if (c.type !== 'chopper') riders.push(c.rider); c.rider = null; return; }
   const r = c.rider; r.h.position.set(c.x - Math.cos(c.h) * BIKE_SEAT.back, BIKE_SEAT.y + c.g.position.y, c.z + Math.sin(c.h) * BIKE_SEAT.back); r.h.rotation.y = c.h + Math.PI / 2; r.h.rotation.z = c.lean || 0;
   const far = Math.hypot(c.x - G.player.x, c.z - G.player.z) > 150; r.h.visible = !far; if (!far) { anim(r, 'Drive'); r.mixer.update(.016); }
 }
@@ -1068,6 +1078,20 @@ export function newCar(type, hex) {
     else { const red = new T.MeshBasicMaterial({ color: 0xd01828 }), W2 = CM.van.W; for (const sd of [1, -1]) { const a = new T.Mesh(B(3.4, .22, .02), red); a.position.set(-.3, .85, sd * (W2 / 2 + .015)); g.add(a); }
       const l = new T.Mesh(B(.3, .12, 1.3), new T.MeshBasicMaterial({ color: 0xff3040 })); l.position.set(.9, ge.seat.top + .1, 0); g.add(l); }
   }
+  if (type === 'garbage') {   // a rounded compactor at the back, a bin lift, a white stripe and an orange beacon
+    const dk = new T.MeshStandardMaterial({ color: 0x255f3a, roughness: .6 }), wh = new T.MeshStandardMaterial({ color: 0xf0f0ea, roughness: .6 }), ar = new T.MeshStandardMaterial({ color: 0x3a3d42, roughness: .5, metalness: .5 });
+    for (const sd of [1, -1]) { const st = new T.Mesh(B(5.6, .22, .02), wh); st.position.set(-.9, 1.6, sd * 1.235); g.add(st); }
+    const hump = new T.Mesh(B(1.2, .5, 2.2), dk); hump.position.set(-3.1, 3.05, 0); g.add(hump);
+    const lift = new T.Mesh(B(.3, 1.6, 2.3), ar); lift.position.set(-3.95, 2.1, 0); g.add(lift); const arm = new T.Mesh(B(.5, .14, 1.9), ar); arm.position.set(-4.15, 1.2, 0); g.add(arm);
+    const bc = new T.Mesh(B(.34, .18, .34), new T.MeshBasicMaterial({ color: 0xffa520 })); bc.position.set(2.6, 2.62, 0); g.add(bc);
+  }
+  if (type === 'haul') {   // the tipper bed with a heap of gravel, a hinge and hazard stripes
+    const dk = new T.MeshStandardMaterial({ color: 0x3a3d42, roughness: .6, metalness: .4 }), gr = new T.MeshStandardMaterial({ color: 0x8c7a5a, roughness: 1, flatShading: true }), hz = new T.MeshStandardMaterial({ color: 0x1a1a1a, roughness: .6 });
+    const rim = new T.Mesh(B(5.8, .12, 2.5), dk); rim.position.set(-.9, 2.2, 0); g.add(rim);
+    const heap = new T.Mesh(new T.ConeGeometry(1.5, .9, 7), gr); heap.scale.set(1.9, 1, 1.05); heap.position.set(-.9, 2.62, 0); g.add(heap);
+    for (let k = 0; k < 5; k++) for (const sd of [1, -1]) { const hs = new T.Mesh(B(.3, .3, .02), hz); hs.position.set(-3.5 + k * .55 + (sd > 0 ? .27 : 0), 1.3, sd * 1.235); hs.rotation.z = .7; g.add(hs); }
+    const bc = new T.Mesh(B(.34, .18, .34), new T.MeshBasicMaterial({ color: 0xffa520 })); bc.position.set(2.6, 2.62, 0); g.add(bc);
+  }
   if (type === 'firetruck') {   // a ladder on the roof, a water cannon, and flashing red lights
     const lad = new T.MeshStandardMaterial({ color: 0xbfc4c8, roughness: .5, metalness: .6 });
     for (const z of [-.45, .45]) { const r = new T.Mesh(B(5.4, .1, .08), lad); r.position.set(-.8, 3.45, z); g.add(r); }
@@ -1085,7 +1109,7 @@ function placeCar(c) { if (c.phys && c.phys.kind !== 'kin') return;   /* a free 
 export function removeCar(c) { if (c.rider) { c.rider.h.visible = false; riders.push(c.rider); c.rider = null; } G.scene.remove(c.g); const i = G.cars.indexOf(c); if (i >= 0) G.cars.splice(i, 1); const j = G.police.indexOf(c); if (j >= 0) G.police.splice(j, 1); }
 export function repaintCar(c) { if (c.spec.psx) { const vs = Object.keys(PX[c.type].tex); c.g.children[0].material = psxMat(c.type, vs[Math.floor(Math.random() * vs.length)]); return; } if (c.police ||c.type === 'taxi' || c.spec.paintCol) return; c.g.children[0].material = paintMat(CARCOL[Math.floor(Math.random() * CARCOL.length)]); }
 const randType = () => { const r = rnd(); return r < .16 ? 'sedan' : r < .3 ? 'hatch' : r < .42 ? 'coupe' : r < .52 ? 'rally' : r < .6 ? 'mobil' : r < .68 ? 'jeep' : r < .75 ? 'muscle' : r < .8 ? 'pickup' : r < .84 ? 'sports' : r < .88 ? 'ghini' : r < .91 ? 'italia' : r < .93 ? 'fenyr' : r < .98 ? 'van' : 'taxi'; };
-const roadType = () => { const r = rnd(); return r < .08 ? 'bus' : r < .12 ? 'ambulance' : r < .2 ? 'truck' : r < .28 ? 'bike' : randType(); };
+const roadType = () => { const r = rnd(); return r < .08 ? 'bus' : r < .12 ? 'ambulance' : r < .16 ? 'truck' : r < .185 ? 'garbage' : r < .21 ? 'haul' : r < .26 ? 'bike' : r < .28 ? 'chopper' : randType(); };
 
 /* ---------- traffic on the road graph ---------- */
 const legSlots = {};
