@@ -68,7 +68,8 @@ function setCar(r) {
 }
 
 function onMsg(m) {
-  if (m.t === 'hello') {
+  if (m.t === 'pong') pingMs = performance.now() - m.n;
+  else if (m.t === 'hello') {
     myId = m.id; for (const o of m.others) addRemote(o.id, o.name, o.look, o.st);
     send({ t: 'join', name: myName(), look: myLook() });
   } else if (m.t === 'join') addRemote(m.id, m.name, m.look);
@@ -109,8 +110,16 @@ export function startNet() {
 
 export function sendChat(msg) { send({ t: 'chat', msg }); }
 
-export function updateNet(dt) {
+let netErr = 0, fpsS = 60, pingMs = 0, pingT = 0, infoEl = null;
+function showInfo(dt) {
+  if (!infoEl) { infoEl = document.createElement('div'); infoEl.style.cssText = 'position:fixed;left:50%;top:6px;transform:translateX(-50%);font:12px sans-serif;color:#fff;background:rgba(0,0,0,.45);padding:2px 8px;border-radius:8px;z-index:5;pointer-events:none'; document.body.appendChild(infoEl); }
+  fpsS += (1 / Math.max(dt, .001) - fpsS) * .05; pingT -= dt;
+  if (pingT <= 0) { pingT = 2; send({ t: 'ping', n: performance.now() }); infoEl.textContent = (net.on ? (others.size + 1) + ' online \u00b7 ' + Math.round(pingMs) + ' ms' : 'offline') + ' \u00b7 ' + Math.round(fpsS) + ' fps'; }
+}
+export function updateNet(dt) { try { tickNet(dt); } catch (e) { if (netErr++ < 3) console.warn('net', e); } }
+function tickNet(dt) {
   if (!started) return;
+  showInfo(dt);
   const p = G.player;
   // my own state, 12 times a second
   sendT -= dt;

@@ -53,6 +53,7 @@ wss.on('connection', ws => {
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     if (!m || typeof m.t !== 'string') return;
+    if (m.t === 'ping') { send(ws, { t: 'pong', n: m.n }); return; }
     if (m.t === 'join') {
       me.name = String(m.name || me.name).slice(0, 16).replace(/[<>]/g, '');
       me.look = m.look && typeof m.look === 'object' ? m.look : {};
