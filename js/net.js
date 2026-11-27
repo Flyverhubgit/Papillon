@@ -3,7 +3,7 @@ import * as T from 'three';
 import { G } from './world.js';
 import { newPerson, newCar, playAnim } from './actors.js';
 
-const HOME = 'wss://papillon-gfb6.onrender.com/ws';   // used when the game is opened as a single file
+const HOME = 'wss://papillon-game.onrender.com/ws';   // used when the game is opened as a single file
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
