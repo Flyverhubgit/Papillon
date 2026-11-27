@@ -19,10 +19,11 @@ async function loadGLB(name) {
 }
 export async function loadModels(onProgress) {
   // phones skip the detailed downtown kit buildings (d1-d3 and their textures) to stay light
-  const names = ['pm', 'pw', 'b1', 'b2', 'b3', 'b4', 'b5'].concat(MOBILE ? [] : ['d1', 'd2', 'd3']), data = ['am', 'aw', 'guns', 'cars', 'psx', 'xp'].concat(MOBILE ? [] : ['dtex']), out = {}, tot = names.length + data.length; let n = 0;
+  const names = ['pm', 'pw', 'b1', 'b2', 'b3', 'b4', 'b5'].concat(MOBILE ? [] : ['d1', 'd2', 'd3']), data = ['am', 'aw', 'guns', 'cars', 'psx'].concat(peopleStyle() === 'real' ? ['xp'] : peopleStyle() === 'new' ? ['ub'] : []).concat(MOBILE ? [] : ['dtex']), out = {}, tot = names.length + data.length; let n = 0;
   await Promise.all(names.map(async nm => { const g = await loadGLB(nm); out[nm] = g.scene; out[nm + '_anim'] = g.animations; onProgress(++n / tot); })
     .concat(data.map(async nm => { out[nm] = (await import('../models/' + nm + '.js')).default; onProgress(++n / tot); })));
   CM = out.cars; PX = out.psx;
+  if (out.ub) { try { out.ub = await parseUB(out.ub); } catch (e) { console.warn('new people failed', e); out.ub = null; } }
   return out;
 }
 let PX = null;   // the retro textured cars (models/psx.js): one body each, several paint jobs as pictures
@@ -160,7 +161,7 @@ export function prepPeople(models) {
     smoothNormals(scene);   // soft, rounded figures
     PT[key] = { scene, clips, parts, k: (key === 'pw' ? 1.68 : 1.8) / h, y: -box.min.y };
   }
-  try { buildXP(models.xp, gunGeo, gunMat); } catch (e) { console.warn('realistic people failed', e); XP.m.length = XP.f.length = 0; }
+  try { buildXP(peopleStyle() === 'new' ? models.ub : models.xp, gunGeo, gunMat); } catch (e) { console.warn('realistic people failed', e); XP.m.length = XP.f.length = XP.c.length = 0; }
 }
 // ---- the realistic people (Mixamo-rigged, models/xp.js): they borrow every animation of the older figures
 const XP = { m: [], f: [], c: [] };
@@ -174,12 +175,13 @@ function unb64b(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i
 // the FBX loader prints one warning for every vertex with too many bone weights (thousands per character): that floods the console and makes the game stutter. Drop that one message while loading.
 function quietParse(fn) { const w = console.warn; console.warn = (...a) => { if (typeof a[0] === 'string' && a[0].indexOf('skinning weights') >= 0) return; w.apply(console, a); }; try { return fn(); } finally { console.warn = w; } }
 // which people the game uses: the original figures (default) or the realistic ones; the choice is kept in the browser and changed in the Statistics menu
-export function peopleStyle() { try { return localStorage.getItem('papillon.people2') === 'real' ? 'real' : 'classic'; } catch (e) { return 'classic'; } }   // new key: an old saved 'real' choice no longer counts, so everyone starts on the classic figures
-export function togglePeople() { try { localStorage.setItem('papillon.people2', peopleStyle() === 'real' ? 'classic' : 'real'); } catch (e) { } }
+export function peopleStyle() { try { const v = localStorage.getItem('papillon.people3'); return v === 'real' || v === 'classic' ? v : 'new'; } catch (e) { return 'new'; } }   // new key: earlier saved choices no longer count
+export function togglePeople() { try { const c = peopleStyle(); localStorage.setItem('papillon.people3', c === 'new' ? 'classic' : c === 'classic' ? 'real' : 'new'); } catch (e) { } }
 function buildXP(xp, gunGeo, gunMat) {
-  if (!xp || peopleStyle() !== 'real') return;
-  const mgr = new T.LoadingManager(), clipsOf = {}; mgr.setURLModifier(() => PIXEL);
-  const mk = (e, sex, key) => {
+  if (!xp || peopleStyle() === 'classic') return;
+  const NEW = peopleStyle() === 'new', mgr = new T.LoadingManager(), clipsOf = {}; mgr.setURLModifier(() => PIXEL);
+  if (NEW) xp = ubSpecs(xp);
+  const mk = NEW ? mkUB : (e, sex, key) => {
     const scene = quietParse(() => new FBXLoader(mgr).parse(unb64b(e.fbx).buffer, '')), tex = new T.TextureLoader().load(e.tex); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
     const mat = new T.MeshStandardMaterial({ map: tex, roughness: .85, metalness: 0 });
     scene.traverse(o => { if (o.isMesh) { o.material = mat; o.castShadow = true; o.frustumCulled = false; } });
@@ -196,13 +198,87 @@ function buildXP(xp, gunGeo, gunMat) {
   const holdOf = {};
   for (const sex of ['m', 'f']) { const ref = XP[sex][0]; if (ref) { const o = retargetXP(ref, PT[sex === 'f' ? 'pw' : 'pm']); clipsOf[sex] = o.clips; holdOf[sex] = o.hold; } }
   for (const r of done) if (clipsOf[r.sex]) {
-    PT[r.key] = { scene: r.scene, clips: clipsOf[r.sex], x: true, mat: r.mat, k: r.k, y: r.y };
+    PT[r.key] = { scene: r.scene, clips: clipsOf[r.sex], x: true, mat: r.mat, k: r.k, y: r.y, ub: r.ubSpec || null, ubBody: r.ubBody };
     // the guns hang on the right hand, where the old figures held them
     const hand = r.scene.getObjectByName('mixamorigRightHand'), hd = holdOf[r.sex];
     if (hand && hd && gunGeo) { const hold = new T.Group(); hold.name = 'gunhold'; hold.position.fromArray(hd.p); hold.quaternion.fromArray(hd.q); hold.scale.setScalar(hd.s); hand.add(hold);
       for (const k in gunGeo) { const gm = new T.Mesh(gunGeo[k], gunMat); gm.name = 'gun_' + k; gm.visible = false; hold.add(gm); } }
   }
   XP.c = XP.c.filter(r => PT[r.key]);
+}
+// ---- the new people (Quaternius Universal Base Characters, models/ub.js): their bones are renamed to the Mixamo names so they use the same animation copying as the realistic ones.
+// Clothes are painted into a copy of the skin picture (by which bone moves each triangle), so one person = one body mesh, eyes and hair.
+const UBMAP = { pelvis: 'mixamorigHips', spine_01: 'mixamorigSpine', spine_02: 'mixamorigSpine1', spine_03: 'mixamorigSpine2', neck_01: 'mixamorigNeck', Head: 'mixamorigHead' };
+for (const [a, S] of [['l', 'Left'], ['r', 'Right']]) Object.assign(UBMAP, { ['clavicle_' + a]: 'mixamorig' + S + 'Shoulder', ['upperarm_' + a]: 'mixamorig' + S + 'Arm', ['lowerarm_' + a]: 'mixamorig' + S + 'ForeArm', ['hand_' + a]: 'mixamorig' + S + 'Hand', ['thigh_' + a]: 'mixamorig' + S + 'UpLeg', ['calf_' + a]: 'mixamorig' + S + 'Leg', ['foot_' + a]: 'mixamorig' + S + 'Foot' });
+const ubParse = (str) => new Promise((res, rej) => loader.parse(str, '', g => res(g), rej));
+const ubImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+async function parseUB(raw) {
+  const out = { eye: await ubImg(raw.eye), hair: {} };
+  for (const sex of ['m', 'f']) {
+    const g = await ubParse(raw[sex].gltf), scene = g.scene; let body = null;
+    scene.traverse(o => { if (o.isSkinnedMesh && /^MI_Superhero/.test(o.material.name) ) body = o; });
+    const geo = body.geometry, names = body.skeleton.bones.map(b => b.name), si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, n = geo.attributes.position.count, W = new Float32Array(n * 4);   // per vertex: skin, shirt, trousers, shoes
+    const pi = names.indexOf('pelvis'), waistY = new T.Vector3().setFromMatrixPosition(body.skeleton.boneInverses[pi].clone().invert()).y + .09, sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    for (let v = 0; v < n; v++) {
+      const t = sstep(waistY - .012, waistY + .012, geo.attributes.position.getY(v));   // above this height the torso bones are the shirt, below it the trousers
+      for (let k = 0; k < 4; k++) { const w = sw.getComponent(v, k); if (w <= 0) continue; const nm = names[si.getComponent(v, k)];
+        if (/^(spine_0|clavicle|upperarm)/.test(nm)) { W[v * 4 + 1] += w * t; W[v * 4 + 2] += w * (1 - t); } else if (nm === 'pelvis') { W[v * 4 + 1] += w * t; W[v * 4 + 2] += w * (1 - t); }
+        else if (/^(thigh|calf)/.test(nm)) W[v * 4 + 2] += w; else if (/^(foot|ball)/.test(nm)) W[v * 4 + 3] += w; else W[v * 4] += w; }
+    }
+    // paint a map of what each pixel of the skin picture is (skin / shirt / trousers / shoes), smooth along the cloth edges
+    const S = 512, lab = new Uint8Array(S * S).fill(255), uv = geo.attributes.uv, idx = geo.index.array;
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t], b = idx[t + 1], c = idx[t + 2], ax = uv.getX(a) * S, ay = uv.getY(a) * S, bx = uv.getX(b) * S, by = uv.getY(b) * S, cx = uv.getX(c) * S, cy = uv.getY(c) * S;
+      const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx))), x1 = Math.min(S - 1, Math.ceil(Math.max(ax, bx, cx))), y0 = Math.max(0, Math.floor(Math.min(ay, by, cy))), y1 = Math.min(S - 1, Math.ceil(Math.max(ay, by, cy)));
+      const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy); if (Math.abs(den) < 1e-9) continue;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const px = x + .5, py = y + .5, l1 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / den, l2 = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / den, l3 = 1 - l1 - l2;
+        if (l1 < -.02 || l2 < -.02 || l3 < -.02) continue;
+        let best = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = l1 * W[a * 4 + k] + l2 * W[b * 4 + k] + l3 * W[c * 4 + k]; if (w > bw) { bw = w; best = k; } }
+        lab[y * S + x] = best;
+      }
+    }
+    for (let pass = 0; pass < 3; pass++) { const cp = lab.slice(); for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { if (cp[y * S + x] !== 255) continue; const nb = [x > 0 ? cp[y * S + x - 1] : 255, x < S - 1 ? cp[y * S + x + 1] : 255, y > 0 ? cp[(y - 1) * S + x] : 255, y < S - 1 ? cp[(y + 1) * S + x] : 255].filter(q => q !== 255); if (nb.length) lab[y * S + x] = nb.find(q => q > 0) || 0; } }   // spread a little past the edges of the picture's islands, so no skin shows at the seams
+    const kind = lab;
+    scene.traverse(o => { if (o.isBone && UBMAP[o.name]) o.name = UBMAP[o.name]; });
+    out[sex] = { scene, body, kind, skin: await Promise.all(raw[sex].skin.map(ubImg)), skinURL: raw[sex].skin };
+  }
+  for (const k in raw.hair) { const g = await ubParse(raw.hair[k]); let m = null; g.scene.traverse(o => { if (o.isSkinnedMesh) m = o; }); out.hair[k] = m.geometry; }
+  return out;
+}
+const UBHAIR = [0x16110d, 0x2a1c12, 0x4a2f1a, 0x7a5430, 0xc9a24a, 0xb04a1e, 0x8a8a8a, 0x0e0e10];
+const UBSHIRT = [0xc0392b, 0x2c4a7a, 0xe8e8e8, 0x2f2f33, 0x3f7a4a, 0xd0a020, 0x7a2c6a, 0xd9d2c0, 0x1f6f8b, 0xe07a5f, 0x5a5a8a, 0x8b5a2b];
+const UBPANTS = [0x2d3f63, 0x1d1d22, 0x6b5a3e, 0x4a4a50, 0x3a4a3a, 0x7a6a50, 0x23304a, 0xcfc7b0];
+const UBSHOE = [0xf0f0f0, 0x151517, 0x5a3a22, 0x8a8a90];
+function ubSpecs(ub) {
+  let seed = 12345; const r = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }, pk = a => a[Math.floor(r() * a.length)];   // own random numbers: the city's own sequence is left alone
+  const out = { m: [], f: [], c: [] };
+  for (const sex of ['m', 'f']) for (let i = 0; i < (MOBILE ? 8 : 16); i++) out[sex].push({ ub, sex, skin: r() < .3 ? 1 : 0, shirt: pk(UBSHIRT), pants: pk(UBPANTS), shoe: pk(UBSHOE), hairC: pk(UBHAIR), hair: sex === 'm' ? pk(['Hair_SimpleParted', 'Hair_SimpleParted', 'Hair_Buzzed', 'Hair_Buzzed']) : pk(['Hair_Long', 'Hair_Buns', 'Hair_BuzzedFemale']), beard: sex === 'm' && r() < .3 });
+  for (let i = 0; i < 4; i++) { const sex = i % 2 ? 'f' : 'm'; out.c.push({ ub, sex, s: sex, skin: r() < .3 ? 1 : 0, shirt: 0x1f2d4a, pants: 0x161d2e, shoe: 0x151517, hairC: pk(UBHAIR.slice(0, 3)), hair: sex === 'm' ? 'Hair_Buzzed' : 'Hair_BuzzedFemale', beard: false, cop: true }); }
+  return out;
+}
+const bakeCache = new Map();
+function ubBake(ub, sex, skin, shirt, pants, shoe) {
+  const key = sex + skin + '|' + shirt + '|' + pants + '|' + shoe; if (bakeCache.has(key)) return bakeCache.get(key);
+  const d = ub[sex], img = d.skin[skin], S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); g.drawImage(img, 0, 0, S, S);
+  const im = g.getImageData(0, 0, S, S), p = im.data, cols = [null, new T.Color(shirt), new T.Color(pants), new T.Color(shoe)].map(c => c && [c.r, c.g, c.b].map(v => Math.round(Math.pow(v, 1 / 2.2) * 255)));   // the picture is sRGB
+  for (let i = 0; i < S * S; i++) { const k = d.kind[i]; if (k > 0 && k < 4) { const c = cols[k]; p[i * 4] = c[0]; p[i * 4 + 1] = c[1]; p[i * 4 + 2] = c[2]; } }
+  g.putImageData(im, 0, 0);
+  const tex = new T.CanvasTexture(cv); tex.flipY = false; tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+  const mat = new T.MeshStandardMaterial({ map: tex, roughness: .85, metalness: 0 }); bakeCache.set(key, mat); return mat;
+}
+function mkUB(e, sex, key) {
+  const ub = e.ub, d = ub[sex], root = SkeletonUtils.clone(d.scene); let body = null, eyes = null; const brows = [];
+  root.traverse(o => { if (!o.isSkinnedMesh) return; const mn = o.material.name; if (/^MI_Superhero/.test(mn)) body = o; else if (/^MI_Eyes/.test(mn)) eyes = o; else brows.push(o); });
+  const hairMat = new T.MeshStandardMaterial({ color: e.hairC, roughness: .7, metalness: 0, side: T.DoubleSide });
+  body.material = ubBake(ub, sex, e.skin, e.shirt, e.pants, e.shoe); const eyeTex = new T.Texture(ub.eye); eyeTex.needsUpdate = true; eyeTex.colorSpace = T.SRGBColorSpace; eyeTex.flipY = false;
+  eyes.material = new T.MeshStandardMaterial({ map: eyeTex, roughness: .35, metalness: 0 }); for (const b of brows) b.material = hairMat;
+  const addHair = nm => { const m = new T.SkinnedMesh(ub.hair[nm], hairMat); m.bind(body.skeleton, body.bindMatrix); body.parent.add(m); m.name = 'hair'; };
+  addHair(e.hair); if (e.beard) { addHair('Hair_Beard'); body.parent.children[body.parent.children.length - 1].name = 'beard'; }
+  root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  root.updateMatrixWorld(true);
+  const box = new T.Box3().setFromObject(body), h = box.max.y - box.min.y;
+  return { key, sex, scene: root, mat: body.material, h, k: (sex === 'f' ? 1.68 : 1.8) / h, y: -box.min.y, ubSpec: e, ubBody: body };
 }
 // copy an animation from the old skeleton to the Mixamo one: every bone turns by the same amount (in world space) as its partner
 const NOSH = /Shoulder$/;
@@ -256,15 +332,21 @@ function retargetXP(ref, srcT) {
   return { clips: out, hold };
 }
 export const xpKeys = sex => XP[sex === 'w' || sex === 'f' ? 'f' : 'm'].map(e => e.key);
-G.smoothDBG = r => smoothNormals(r); G.dressDBG = (n, k) => dressUp(n, k); G.lookOptionsDBG = s => lookOptions(s); G.syncOccDBG = c => syncOcc(c); G.newPersonDBG = (k, l) => newPerson(k, l); G.animDBG = (p, n, o, t) => anim(p, n, o, t); G.xpKeysDBG = sx => xpKeys(sx);
+G.smoothDBG = r => smoothNormals(r); G.dressDBG = (n, k) => dressUp(n, k); G.lookOptionsDBG = s => lookOptions(s); G.syncOccDBG = c => syncOcc(c); G.newPersonDBG = (k, l) => newPerson(k, l); G.animDBG = (p, n, o, t) => anim(p, n, o, t); G.xpKeysDBG = sx => xpKeys(sx); G.copKeyDBG = () => copKey();
 // uniforms for the classic figures: a cap or helmet and a badge, so police, fire crews and soldiers are easy to tell apart
 export function copLook() { const o = lookOptions('m'), f = a => a.find(n => n.startsWith('Suit_')) || a.find(n => n.startsWith('Casual_')) || a[0]; return { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x1b2a55, bottom: 0x141c33 }; }
 const uMat = {}, uM = (c, rough) => uMat[c] || (uMat[c] = new T.MeshStandardMaterial({ color: c, roughness: rough === undefined ? .6 : rough, metalness: .1 }));
 export function dressUp(n, kind) {
-  if (!n || !n.h || n.dressed || n.h.getObjectByName('mixamorigHips')) return; n.dressed = kind;
-  const head = n.h.getObjectByName('Head'), chest = n.h.getObjectByName('Chest') || n.h.getObjectByName('Torso'); if (!head) return;
+  if (!n || !n.h || n.dressed || (n.h.getObjectByName('mixamorigHips') && !n.ub)) return; n.dressed = kind;
+  let head = n.h.getObjectByName('Head'), chest = n.h.getObjectByName('Chest') || n.h.getObjectByName('Torso');
+  if (n.ub) {   // the new people: hats hang in an upright holder on the head bone (whose own axes are turned)
+    n.h.updateMatrixWorld(true); const holder = bone => { if (!bone) return null; const g = new T.Group(); bone.add(g); g.quaternion.copy(bone.getWorldQuaternion(new T.Quaternion()).invert().multiply(n.h.getWorldQuaternion(new T.Quaternion()))); return g; };
+    head = holder(n.h.getObjectByName('mixamorigHead')); chest = holder(n.h.getObjectByName('mixamorigSpine2'));
+  }
+  if (!head) return;
+  if (n.ub && (kind === 'fire' || kind === 'army')) n.m.traverse(o => { if (o.name === 'hair') o.visible = false; });   // the helmet covers the hair
   n.h.updateMatrixWorld(true); const ws = head.getWorldScale(new T.Vector3()).x || 1, u = 1 / ws;   // bones carry the figure's own scale: build in metres
-  const add = (par, mesh, x, y, z) => { const pu = 1 / (par.getWorldScale(new T.Vector3()).x || 1); mesh.scale.multiplyScalar(pu); mesh.position.set(x * pu, y * pu, z * pu); mesh.castShadow = true; par.add(mesh); return mesh; };
+  const add = (par, mesh, x, y, z) => { const pu = 1 / (par.getWorldScale(new T.Vector3()).x || 1), hs = n.ub ? .82 : 1; mesh.scale.multiplyScalar(pu * hs); mesh.position.set(x * pu * hs, (y + (n.ub ? .0 : 0)) * pu, z * pu * hs); mesh.castShadow = true; par.add(mesh); return mesh; };
   const cyl = (r, h, c, seg) => new T.Mesh(new T.CylinderGeometry(r, r * 1.02, h, seg || 14), uM(c)), box = (w, h, d, c) => new T.Mesh(new T.BoxGeometry(w, h, d), uM(c));
   if (kind === 'police') {
     add(head, cyl(.125, .07, 0x16224a), 0, .21, -.01); add(head, cyl(.13, .02, 0x0d1530), 0, .175, -.01); add(head, box(.2, .012, .1, 0x0a0f22), 0, .175, .12); add(head, box(.04, .035, .01, 0xe3b53a), 0, .215, .125);
@@ -291,15 +373,16 @@ export function newPerson(key, look) {
   let tint = null;
   if ((key === 'pm' || key === 'pw') && XP.m.length) {   // everybody is one of the realistic people; a coloured top (gang, prisoner) tints the clothes
     const l = XP[key === 'pw' ? 'f' : 'm'], pickd = look && l.find(q => q.key === look.head); key = (pickd || l[Math.floor(rnd() * l.length)]).key;
-    if (look && !pickd && look.top != null) tint = look.top;
+    if (look && (!pickd || PT[key].ub) && (look.top != null || look.bottom != null)) tint = look.top != null ? look.top : -1;
   }
   const t = PT[key], m = SkeletonUtils.clone(t.scene), keep = {}, mats = {};
   if (key === 'pw') shapeWoman(m);
   if (t.x) {
     m.scale.multiplyScalar(t.k); m.position.y = t.y * t.k; const h = new T.Group(); h.add(m); G.scene.add(h);
-    if (tint != null) { const mat = t.mat.clone(); mat.color.set(0xffffff).lerp(new T.Color(tint), .55); m.traverse(o => { if (o.isMesh) o.material = mat; }); }
+    if (tint != null && t.ub) { const sp = t.ub, mat = ubBake(sp.ub, sp.sex, sp.skin, tint >= 0 ? tint : sp.shirt, look && look.bottom != null ? look.bottom : sp.pants, sp.shoe); m.traverse(o => { if (o.isSkinnedMesh && /^MI_Superhero/.test(o.name) === false && o.material === t.mat) o.material = mat; }); }   // a gang or prison top: the shirt is painted in that colour
+    else if (tint != null && tint >= 0) { const mat = t.mat.clone(); mat.color.set(0xffffff).lerp(new T.Color(tint), .55); m.traverse(o => { if (o.isMesh) o.material = mat; }); }
     const guns = {}; m.traverse(o => { if (o.name.startsWith('gun_')) guns[o.name.slice(4)] = o; });
-    return { h, m, mixer: new T.AnimationMixer(m), clips: t.clips, acts: {}, cur: null, pistol: guns.pistol || null, guns };
+    return { h, m, mixer: new T.AnimationMixer(m), clips: t.clips, acts: {}, cur: null, pistol: guns.pistol || null, guns, ub: !!t.ub };
   }
   const CATKEY = { Head: 'head', Body: 'body', Legs: 'legs', Feet: 'feet' };
   for (const cat in t.parts) {
@@ -417,9 +500,9 @@ function ikLimb(a, b, c, tgt, pole) {
   const mid = p0.clone().addScaledVector(u, x).addScaledVector(pp, h), end = p0.clone().addScaledVector(u, d);
   ikAim(a, b, mid); ikAim(b, c, end);
 }
-const PEG = new T.Vector3(), POLE = new T.Vector3();
+const PEG = new T.Vector3(), POLE = new T.Vector3(), BIKEMX = { FootL: 'mixamorigLeftFoot', FootR: 'mixamorigRightFoot', WristL: 'mixamorigLeftHand', WristR: 'mixamorigRightHand' };
 export function bikePose(n, chop) {
-  if (!n.ik) { const f = k => n.h.getObjectByName(k), L = ['UpperLegL', 'LowerLegL', 'FootL', 'UpperArmL', 'LowerArmL', 'WristL', 'UpperLegR', 'LowerLegR', 'FootR', 'UpperArmR', 'LowerArmR', 'WristR'].map(f); n.ik = L.every(Boolean) ? L : 'no'; }
+  if (!n.ik) { const f = k => n.h.getObjectByName(k) || n.h.getObjectByName(MXALIAS[k] || BIKEMX[k]), L = ['UpperLegL', 'LowerLegL', 'FootL', 'UpperArmL', 'LowerArmL', 'WristL', 'UpperLegR', 'LowerLegR', 'FootR', 'UpperArmR', 'LowerArmR', 'WristR'].map(f); n.ik = L.every(Boolean) ? L : 'no'; }
   if (n.ik === 'no') return; const q = n.ik; n.h.updateMatrixWorld(true);
   for (const sd of [1, -1]) {
     const o = sd > 0 ? 0 : 6, w = (x, y, z) => n.h.localToWorld(PEG.set(x, y, z)).clone(), dir = (x, y, z) => POLE.set(x, y, z).transformDirection(n.h.matrixWorld).clone();
@@ -974,7 +1057,7 @@ SPECS.chopper = Object.assign({}, SPECS.bike, { chop: true, L: 2.7, paintCol: 0x
 // motorbikes in traffic carry a rider you can see; he disappears with the bike or when the bike is no longer driven
 const riders = [];
 function dropRider(c) { if (c.rider) { c.rider.h.visible = false; if (c.type !== 'chopper') riders.push(c.rider); c.rider = null; } }
-const gangLook = () => Object.assign(defaultLook('m'), { skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x16161a, bottom: 0x1d2230 });
+const gangLook = () => Object.assign(defaultLook('m'), { head: pick(xpKeys('m').length ? xpKeys('m') : ['x']), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x16161a, bottom: 0x1d2230 });
 function rideBike(c) {
   if (c.riderOff) { if (c.rider) dropRider(c); return; }   // the rider has got off to fight
   if (c.ai && !c.rider) { let r = riders.pop(); if (c.type === 'chopper') r = null; if (!r) { r = c.type === 'chopper' ? newPerson('pm', gangLook()) : newPerson(civKey()); r.h.rotation.order = 'YXZ'; } r.h.visible = true; c.rider = r; }
@@ -1029,7 +1112,9 @@ function syncOcc(c) {
     const a = takeOcc(!!c.police), b = takeOcc(!!c.police);
     if (a && b) {
       const sc = .9, hS = Math.max(.5, Math.min(.9, (st.top - .5) / 1.3));   // a little squashed so it sits inside the car: feet on the floor, head under the roof   // head just under the roof line, whatever the car
-      for (const [n, z] of [[a, -st.z], [b, st.z]]) { n.real = true; n.h.scale.set(n.base * sc, n.base * hS, n.base * sc); n.h.position.set(st.x - .4, .28, z); c.g.add(n.h); }
+      for (const [n, z] of [[a, -st.z], [b, st.z]]) { n.real = true; n.h.scale.set(n.base * sc, n.base * hS, n.base * sc); n.h.position.set(st.x - .4, .28, z); c.g.add(n.h);
+        if (n.ub) { anim(n, 'Drive'); n.mixer.update(.05); c.g.updateMatrixWorld(true); const hp = c.g.worldToLocal(n.h.getObjectByName('mixamorigHips').getWorldPosition(new T.Vector3())); n.h.position.x += st.x - .42 - hp.x; n.h.position.z += z - hp.z; n.h.position.y += st.y + .16 - hp.y; c.g.updateMatrixWorld(true); const hd = c.g.worldToLocal(n.h.getObjectByName('mixamorigHead').getWorldPosition(new T.Vector3())).y + .17; n.h.position.y += Math.max(-1, Math.min(.2, st.top - .06 - hd)); }   // the new people: seat them by their hips, wherever the pose puts them
+      }
       c.occ = [a, b];
     } else { if (a) occPool[a.cop ? 'cop' : 'civ'].push(a); if (b) occPool[b.cop ? 'cop' : 'civ'].push(b);
       const y = Math.min(st.y + .02, st.top - .74), d = occFigure(c.police ? 0x1f2f55 : 0), q = occFigure(0); d.position.set(st.x - .02, y, -st.z); q.position.set(st.x - .02, y, st.z); c.g.add(d, q); c.occ = [d, q]; }
