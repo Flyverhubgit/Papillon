@@ -70,6 +70,7 @@ import { setupMissions, updateMissions, startTaxiShift, startParamedic } from '.
 import { updateFx, updateBreaks } from './fx.js';
 import { updateDemolish, updateWater, updateBrigade, updateBlastFx } from './demolish.js';
 import { updateExtras } from './extras.js';
+import { startNet, updateNet } from './net.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -567,7 +568,7 @@ function sim(dt) {
   cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; }
   if (playing) { streamWorld(dt); areaTick(dt); }
   updateRoomLight();
-  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
+  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
   updateCamera(dt);
   if (G.tipsy > G.time) { const k = Math.min(1, (G.tipsy - G.time) / 40); camera.rotateZ(Math.sin(G.time * 1.1) * .045 * k); camera.rotateY(Math.sin(G.time * .7) * .03 * k); }   /* a drink too many */
   G.skyUpdate(dt, G.hour, tgt, camera); if (!MOBILE || frameN % 2 === 0) G.seaUpdate(G.time); G.wheelUpdate(dt);
@@ -657,7 +658,7 @@ function startGame() {
   if (playing) { menuOpen = false; camPitch = .25; G.onHealth(); saveGame(); return; }
   const home = homeSpot(); if (home) { G.player.x = home.x; G.player.z = home.z; }
   if (!hasGun(G.weapon)) G.weapon = 'fist'; G.onWeapon(); G.onMoney(0); G.onHealth();
-  initSound(); saveGame();
+  initSound(); saveGame(); startNet();
   playing = true; camYaw = -Math.PI / 2; camPitch = .3; $('start').style.display = 'none'; document.body.classList.add('playing');
   if (!MOBILE) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } }
   say(MOBILE ? 'Left thumb moves, right thumb looks around' : 'WASD to walk, Shift to run (Caps Lock = always run), Space to jump', 6);

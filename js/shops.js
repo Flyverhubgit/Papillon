@@ -445,6 +445,7 @@ export function shoot() {
     let oy = 1.35 + p.y, gx = ox, gz = oz;
     { const gun = !p.car && !p.ride && p.guns && p.guns[G.weapon]; if (gun && gun.visible) { gun.getWorldPosition(SHG); gx = SHG.x + dx * .22; gz = SHG.z + dz * .22; oy = SHG.y + .04; } }   // on foot the streak starts at the gun in your hand, not at your head
     G.tracer(gx, oy, gz, sx + dx * best, FLAT ? (hitPed || hitG || hitC || hitT ? 1.1 : 1.25) + p.y : ey, sz + dz * best);
+    if (G.netShot) G.netShot(gx, oy, gz, sx + dx * best, FLAT ? (hitPed || hitG || hitC || hitT ? 1.1 : 1.25) + p.y : ey, sz + dz * best);
     if (dirt && G.debris) G.debris(sx + dx * best, ey, sz + dz * best, 3, 0xa9a294, -dx * 2, -dz * 2, .07);   // a puff of grit where it lands
     if (hitT) { hitT.hit(hitT.car ? g.car : g.dmg, dx, dz); any = true; cop = true; }
     else if (hitC) { G.hitCop(hitC, g.dmg); any = true; cop = true; }
