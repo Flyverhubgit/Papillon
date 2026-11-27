@@ -574,7 +574,7 @@ function frame() {
   const t0 = performance.now(); sim(dt); updateSound(); const t1 = performance.now();
   if (fancy) { if (!composer) { try { buildComposer(); } catch (e) { fancy = false; console.warn('fine graphics unavailable', e); } } }
   renderer.info.reset();
-  renderer.shadowMap.autoUpdate = false; G.shSk = (G.shSk || 0) + 1; renderer.shadowMap.needsUpdate = G.perf.frame < 18 || G.shSk % 2 === 0;   // on a slow PC the shadows are redrawn every second frame instead of every frame
+  renderer.shadowMap.autoUpdate = false; G.shSk = (G.shSk || 0) + 1; renderer.shadowMap.needsUpdate = G.perf.frame < 14 || (G.perf.frame < 24 ? G.shSk % 2 === 0 : G.shSk % 3 === 0);   // on a slow PC the shadows are redrawn every second frame instead of every frame
   if (fancy && composer) { bloom.strength = .2 + .28 * (G.night || 0); composer.render(dt); } else renderer.render(scene, camera);
   const t2 = performance.now(); let t3 = t2;
   if (G.perfOn) { try { renderer.getContext().finish(); } catch (e) { } t3 = performance.now(); }   // only while the F3 panel is open: wait for the graphics card, so its time is counted too

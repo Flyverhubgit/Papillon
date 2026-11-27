@@ -334,7 +334,7 @@ function retargetXP(ref, srcT) {
 export const xpKeys = sex => XP[sex === 'w' || sex === 'f' ? 'f' : 'm'].map(e => e.key);
 G.smoothDBG = r => smoothNormals(r); G.dressDBG = (n, k) => dressUp(n, k); G.lookOptionsDBG = s => lookOptions(s); G.syncOccDBG = c => syncOcc(c); G.newPersonDBG = (k, l) => newPerson(k, l); G.animDBG = (p, n, o, t) => anim(p, n, o, t); G.xpKeysDBG = sx => xpKeys(sx); G.copKeyDBG = () => copKey();
 // uniforms for the classic figures: a cap or helmet and a badge, so police, fire crews and soldiers are easy to tell apart
-export function copLook() { const o = lookOptions('m'), f = a => a.find(n => n.startsWith('Suit_')) || a.find(n => n.startsWith('Casual_')) || a[0]; return { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x1b2a55, bottom: 0x141c33 }; }
+export function copLook() { const o = lookOptions('m'), f = a => a.find(n => n.startsWith('Suit_')) || a.find(n => n.startsWith('Casual_')) || a[0]; return { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x3d78e6, bottom: 0x1a2a5c }; }
 const uMat = {}, uM = (c, rough) => uMat[c] || (uMat[c] = new T.MeshStandardMaterial({ color: c, roughness: rough === undefined ? .6 : rough, metalness: .1 }));
 export function dressUp(n, kind) {
   if (!n || !n.h || n.dressed || (n.h.getObjectByName('mixamorigHips') && !n.ub)) return; n.dressed = kind;
@@ -349,8 +349,11 @@ export function dressUp(n, kind) {
   const add = (par, mesh, x, y, z) => { const pu = 1 / (par.getWorldScale(new T.Vector3()).x || 1), hs = n.ub ? .82 : 1; mesh.scale.multiplyScalar(pu * hs); mesh.position.set(x * pu * hs, (y + (n.ub ? .0 : 0)) * pu, z * pu * hs); mesh.castShadow = true; par.add(mesh); return mesh; };
   const cyl = (r, h, c, seg) => new T.Mesh(new T.CylinderGeometry(r, r * 1.02, h, seg || 14), uM(c)), box = (w, h, d, c) => new T.Mesh(new T.BoxGeometry(w, h, d), uM(c));
   if (kind === 'police') {
-    add(head, cyl(.125, .07, 0x16224a), 0, .21, -.01); add(head, cyl(.13, .02, 0x0d1530), 0, .175, -.01); add(head, box(.2, .012, .1, 0x0a0f22), 0, .175, .12); add(head, box(.04, .035, .01, 0xe3b53a), 0, .215, .125);
+    add(head, cyl(.125, .07, 0xf1f3f7), 0, .21, -.01); add(head, cyl(.13, .02, 0x16224a), 0, .175, -.01); add(head, box(.2, .012, .1, 0x0a0f22), 0, .175, .12); add(head, box(.04, .035, .01, 0xe3b53a), 0, .215, .125);
     if (chest) { add(chest, box(.05, .06, .012, 0xe3b53a), .09, .06, .13); }
+  } else if (kind === 'guard') {   // prison guards: pale khaki cap with a red band, silver badge
+    add(head, cyl(.125, .07, 0xe6dcb4), 0, .21, -.01); add(head, cyl(.13, .02, 0xc4281f), 0, .175, -.01); add(head, box(.2, .012, .1, 0x2a2418), 0, .175, .12); add(head, box(.04, .035, .01, 0xd0d4da), 0, .215, .125);
+    if (chest) { add(chest, box(.05, .06, .012, 0xd0d4da), .09, .06, .13); }
   } else if (kind === 'fire') {
     const dome = new T.Mesh(new T.SphereGeometry(.135, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), uM(0xf2c315)); add(head, dome, 0, .15, -.01); add(head, cyl(.15, .015, 0xf2c315, 16), 0, .15, -.01); add(head, box(.05, .05, .1, 0xd9a60c), 0, .26, -.01);
   } else if (kind === 'army') {

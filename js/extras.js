@@ -1,6 +1,6 @@
 // Papillon - small rules of the city: robbing people at gunpoint, the airport as a no-go area, breaking out of prison.
 import { G, AIRPORT, JAIL, landHeight } from './world.js';
-import { crime, panicPeds, newCar, removeCar, makeNPC, playAnim, clearLine } from './actors.js';
+import { crime, panicPeds, newCar, removeCar, makeNPC, playAnim, clearLine, dressUp } from './actors.js';
 import { GUNS, updateHeist } from './shops.js';
 
 let robPed = null, robT = 0, airT = 0, hintT = 0;
@@ -22,8 +22,8 @@ function keepHome() {
 const guards = []; G.prisonGuards = guards; let alarm = 0, escT = 0, tookBoat = false;
 function prisonGuards(dt) {
   const p = G.player, d = Math.hypot(p.x - JAIL.x, p.z - JAIL.z);
-  if (!guards.length) { const COP = { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', top: 0x2b3a2f, bottom: 0x1c241e };
-    for (const [ox, oz, yaw] of [[21.5, -5.2, -Math.PI / 2], [21.5, 5.2, -Math.PI / 2], [-6, 9, Math.PI / 2]]) { const x = JAIL.x + ox, z = JAIL.z + oz, n = makeNPC('pm', Object.assign({ skin: 0xe0ac7e, hair: 0x1c1410 }, COP), x, z, yaw); n.h.position.y = landHeight(x, z); n.far = true; const g = { n, x, z, yaw, cd: 1, hp: 60, down: 0 }; guards.push(g);
+  if (!guards.length) { const COP = { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', top: 0xd8c98e, bottom: 0x5a6a48 };
+    for (const [ox, oz, yaw] of [[21.5, -5.2, -Math.PI / 2], [21.5, 5.2, -Math.PI / 2], [-6, 9, Math.PI / 2]]) { const x = JAIL.x + ox, z = JAIL.z + oz, n = makeNPC('pm', Object.assign({ skin: 0xe0ac7e, hair: 0x1c1410 }, COP), x, z, yaw); n.h.position.y = landHeight(x, z); n.far = true; dressUp(n, 'guard'); const g = { n, x, z, yaw, cd: 1, hp: 60, down: 0 }; guards.push(g);
       G.targets.push({ get x() { return g.x; }, get z() { return g.z; }, y: n.h.position.y, top: 2.1, r: .5, person: true, alive: () => g.down <= 0,
         hit: (dmg, dx, dz) => { if (g.down > 0) return; g.hp -= dmg; if (G.blood) G.blood(g.x, n.h.position.y + 1.2, g.z, dmg > 15 ? 6 : 3, (dx || 0) * 5, (dz || 0) * 5); alarm = Math.max(alarm, 40);
           if (g.hp <= 0) { g.down = 150; playAnim(n, 'Death', true, 1.2); crime(Math.min(6, Math.max(4, G.stars + 1)), false); if (G.stat) G.stat('kills'); } else crime(Math.min(6, Math.max(3, G.stars)), false); } }); }

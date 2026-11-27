@@ -13,6 +13,8 @@ const DIR = { x: -.2, z: -.98 };   // the way the canoe lies from the island (no
 const WP = [{ x: JAIL.x + 5, z: JAIL.z - 125, t: 'ROW NORTH' }, { x: COAST + 12, z: JAIL.z - 100, t: 'LAND HERE' }];   // the way round the island to the mainland shore
 let st = 'idle', cool = 0, hud = null, goalM = null, dega = null, canoe = null, canoeHome = null, hideT = 0, wpI = 0, koM = null;
 let beam = null, spot = null, lightA = 0, seenCd = 0;
+let hasPipe = false, pipeGround = null, pipeHand = null, notice = 0, baseYaw = null;
+const PIPE = () => ({ x: JAIL.x - 20, z: JAIL.z - 16 });
 const drop = m => { if (!m) return; G.scene.remove(m.mesh, m.sprite); const i = markers.indexOf(m); if (i >= 0) markers.splice(i, 1); };
 function setHud(s) { if (!hud) { hud = document.createElement('div'); hud.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,24,32,.72);color:#fff;font:600 14px system-ui,sans-serif;pointer-events:none;z-index:6;display:none'; document.body.appendChild(hud); } hud.textContent = s || ''; hud.style.display = s ? 'block' : 'none'; }
 const stars = n => { if (G.stars < n) { G.stars = n; if (G.onStars) G.onStars(); } G.lostT = 0; };   // the search party never loses you
@@ -50,8 +52,8 @@ function hideCanoe(cx, cz) {
 }
 
 function reset() {
-  drop(goalM); goalM = null; drop(koM); koM = null; st = 'idle'; hideT = 0; wpI = 0; setHud('');
-  const g = guard(); if (g && g.down > 0) g.down = .5;
+  drop(goalM); goalM = null; drop(koM); koM = null; st = 'idle'; hideT = 0; wpI = 0; setHud(''); dropPipe(); notice = 0;
+  const g = guard(); if (g && g.down > 0) g.down = .5; if (g && baseYaw !== null) { g.yaw = baseYaw; baseYaw = null; }
   if (canoe) { if (G.player.ride === canoe) G.player.ride = null; canoe.x = canoeHome.x; canoe.z = canoeHome.z; canoe.h = 0; canoe.vx = canoe.vz = canoe.v = 0; }
 }
 function fail(why) { if (st === 'idle') return; reset(); cool = 30; G.say('Escape failed: ' + why + '. Dega will help you try again.', 6); }
@@ -60,16 +62,50 @@ function win() {
   G.say('The search party gives up. YOU ARE FREE. A man like Papillon always finds a way. +$' + PAY, 10);
 }
 
+// ---- the steel pipe: lies in the yard; you carry it in your right hand ----
+function pipeMesh(r) { return new T.Mesh(new T.CylinderGeometry(r, r, 1, 8), new T.MeshStandardMaterial({ color: 0xc4cad2, metalness: .1, roughness: .5, emissive: 0x20242a })); }
+function dropPipe() {
+  hasPipe = false;
+  if (pipeGround) { G.scene.remove(pipeGround); pipeGround = null; }
+  if (pipeHand && pipeHand.parent) pipeHand.parent.remove(pipeHand); pipeHand = null;
+}
+function grabPipe() {
+  if (st !== 'pipe') return; drop(goalM); goalM = null;
+  if (pipeGround) { G.scene.remove(pipeGround); pipeGround = null; }
+  hasPipe = true; st = 'guard';
+  const hand = G.player.h && G.player.h.getObjectByName('mixamorigRightHand');
+  if (hand) { const ws = new T.Vector3(); hand.getWorldScale(ws); const k = 1 / (ws.y || 1); pipeHand = pipeMesh(.025 * k); pipeHand.scale.set(1, .75 * k, 1); pipeHand.position.set(0, .16 * k, 0); hand.add(pipeHand); }
+  setHud('Creep up BEHIND the guard and hit him with the pipe. If he sees you, or you hit him from the front, it is over.');
+  G.say('You have a steel pipe. Stay out of his sight, come up from behind and swing (punch). Quietly.', 7);
+}
 function start() {
   if (G.hour < 21 && G.hour > 5) G.hour = 22;   // it has to be night
-  st = 'guard'; G.jailed = true; const g = guard();
-  if (g) koM = addMarker({ x: g.x - Math.sin(g.yaw) * 1.3, z: g.z - Math.cos(g.yaw) * 1.3, y: landHeight(g.x, g.z), type: 'story', icon: '!', text: 'PRESS E: KNOCK OUT', color: 0xd9731f, onEnter: knockOut });
-  setHud('1) Follow the arrow to the guard by the wall.  2) Walk up close behind him.  3) Press E (or punch him) to knock him out');
+  st = 'pipe'; G.jailed = true; hasPipe = false; notice = 0;
+  const P = PIPE(), y = landHeight(P.x, P.z);
+  pipeGround = pipeMesh(.04); pipeGround.scale.y = 1.1; pipeGround.rotation.z = Math.PI / 2; pipeGround.rotation.y = .6; pipeGround.position.set(P.x, y + .05, P.z); G.scene.add(pipeGround);
+  goalM = addMarker({ x: P.x, z: P.z, y, type: 'goal', icon: '!', text: 'STEEL PIPE', color: 0xd9731f, onEnter: grabPipe });
+  setHud('1) Find the steel pipe in the yard (orange mark)  2) Sneak up behind the guard by the wall  3) Hit him with the pipe');
 }
-G.onPunch = (x, z, reach) => { if (st !== 'guard') return; const g = guard(); if (g && Math.hypot(g.x - x, g.z - z) < reach + .9) knockOut(); };   // a punch at the guard works too, not only the E mark
+// the guard by the wall keeps watch: he sweeps his eyes over the yard, and if he sees you for too long the plan is dead
+function watch(dt) {
+  const g = guard(); if (!g || g.down > 0) return; const p = G.player;
+  if (baseYaw === null) baseYaw = g.yaw;
+  g.yaw = baseYaw + Math.sin(performance.now() / 1000 * .55) * .9;
+  const dx = p.x - g.x, dz = p.z - g.z, d = Math.hypot(dx, dz) || 1, fx = Math.sin(g.yaw), fz = Math.cos(g.yaw);
+  const sees = d < 12 && (fx * dx + fz * dz) > d * .5;
+  if (sees) { notice += dt * (d < 5 ? 2.2 : 1); setHud('HE IS LOOKING AT YOU! Get out of his sight!'); }
+  else if (notice > 0) { notice = Math.max(0, notice - dt * .6); if (notice === 0) setHud(st === 'pipe' ? 'Find the steel pipe in the yard (orange mark)' : 'Creep up BEHIND the guard and hit him with the pipe.'); }
+  if (notice > 1.3) fail('the guard saw you');
+}
+G.onPunch = (x, z, reach) => {
+  if (st !== 'guard' && st !== 'pipe') return; const g = guard(); if (!g || g.down > 0 || Math.hypot(g.x - x, g.z - z) > reach + .9) return;
+  if (!hasPipe) { fail('you hit the guard with bare hands and he raised the alarm'); return; }
+  const behind = (Math.sin(g.yaw) * (x - g.x) + Math.cos(g.yaw) * (z - g.z)) < 0;   // am I on his back side?
+  if (behind) knockOut(); else fail('he turned round and saw you coming');
+};
 function knockOut() {
   if (st !== 'guard') return; const g = guard(); if (!g) return;
-  if (G.sfx && G.sfx.punch) G.sfx.punch();
+  if (G.sfx && G.sfx.punch) G.sfx.punch(); notice = 0;
   g.down = 900; playAnim(g.n, 'Death', true, 1.2); drop(koM); koM = null; st = 'wall';
   const wx = JAIL.x - 21.5, wz = JAIL.z - 1;
   goalM = addMarker({ x: wx, z: wz, y: landHeight(wx, wz), type: 'story', icon: '!', text: 'CLIMB THE WALL (E)', color: 0xd9731f, onEnter: climb });
@@ -77,7 +113,7 @@ function knockOut() {
   G.say('He is out cold, and you have his keys. Now the wall on the west side. Quick, before the shift changes.', 7);
 }
 function climb() {
-  if (st !== 'wall') return; const p = G.player; drop(goalM); goalM = null;
+  if (st !== 'wall') return; const p = G.player; drop(goalM); goalM = null; dropPipe();
   p.x = p.px = JAIL.x - 28.5; p.z = p.pz = JAIL.z - 1; p.y = landHeight(p.x, p.z) + 1; p.vy = 3; p.isle = true; p.swim = false; stars(3);
   st = 'canoe'; goalM = addMarker({ x: canoeHome.x, z: canoeHome.z, y: 0, type: 'goal', icon: '!', text: 'HIDDEN CANOE', color: 0xc8a050, onEnter: board });
   setHud('ALARM! Run north round the island to the canoe hidden in the reeds on the shore!');
@@ -90,11 +126,11 @@ function board() {
 }
 function nextWp() { drop(goalM); const w = WP[wpI]; goalM = addMarker({ x: w.x, z: w.z, y: 0, type: 'goal', icon: '!', text: w.t, color: 0x3a7bd5, onEnter: () => {} }); setHud(wpI === 0 ? 'Row north round the island, away from the guards and the searchlight' : 'Row east to the mainland shore'); }
 function talk() {
-  if (st === 'guard') { G.say('"The guard by the wall. Creep up behind him and take him out. Quietly."', 4); return true; }
+  if (st === 'guard') { G.say('"The guard by the wall. Find the steel pipe in the yard, then creep up behind him. Quietly."', 4); return true; }
   if (st !== 'idle') { G.say('"Go! Do not talk to me, the guards are watching!"', 3); return true; }
   if (cool > 0) { G.say('"Not now. The guards are watching. Come back later."', 3); return true; }
-  G.menu('Dega', '"Psst, Papillon. Tonight we leave. You knock out the guard by the wall and climb over. A canoe is hidden in the reeds on the north shore. Row to the mainland, but when the alarm rings EVERYONE hunts you: guards, a searchlight, boats, helicopters, and they will not stop until you are hidden. I know a hide-out: under the big road bridge. Are you in?"  Pays $' + PAY, [
-    { label: 'Yes, tonight', note: 'it becomes night. Knock out the guard first', fn: () => { start(); G.say('"Good. Follow the orange arrow to the guard by the wall. Walk up behind him, then press E or punch him."', 8); return true; } },
+  G.menu('Dega', '"Psst, Papillon. Tonight we leave. You find a steel pipe, knock out the guard by the wall from behind, and climb over. A canoe is hidden in the reeds on the north shore. Row to the mainland, but when the alarm rings EVERYONE hunts you: guards, a searchlight, boats, helicopters, and they will not stop until you are hidden. I know a hide-out: under the big road bridge. Are you in?"  Pays $' + PAY, [
+    { label: 'Yes, tonight', note: 'it becomes night. Find a pipe, then the guard', fn: () => { start(); G.say('"Good. Follow the orange arrow to the steel pipe in the yard. Grab the steel pipe, then creep up behind him and swing. If he sees you, it is over."', 8); return true; } },
     { label: 'No', fn: () => { G.say('"A pity. I will be here if you change your mind."', 3); return true; } }]);
   return true;
 }
@@ -108,12 +144,12 @@ export function setupEscape() {
   addMarker({ x: dx + .9, z: dz, y: landHeight(dx, dz), type: 'story', icon: '★', text: 'DEGA', color: 0xd9731f, onEnter: talk });
   const ob = G.onBusted; G.onBusted = () => { if (st !== 'idle') fail('you were arrested'); if (ob) ob(); };
   G.onJailed = () => { if (st === 'idle' && cool <= 0) G.say('An old convict in the yard waves you over: "Psst, newcomer." (DEGA is marked on your map)', 7); };
-  G.escapeDBG = { get st() { return st; }, start, knockOut, climb, board, talk, canoe, canoeHome, WP, beam, get hideT() { return hideT; }, get lightA() { return lightA; } };
+  G.escapeDBG = { get st() { return st; }, get notice() { return notice; }, reset, start, knockOut, climb, board, talk, canoe, canoeHome, WP, beam, get hideT() { return hideT; }, get lightA() { return lightA; } };
 }
 // on-screen arrow: points at the current goal, relative to where the camera looks
 let arrowEl = null;
 function updateArrow() {
-  const t = st === 'idle' ? null : (goalM || koM);
+  const t = st === 'idle' ? null : (goalM || (st === 'guard' ? guard() : null));
   if (!t) { if (arrowEl) arrowEl.style.display = 'none'; return; }
   if (!arrowEl) {
     arrowEl = document.createElement('div');
@@ -133,6 +169,7 @@ export function updateEscape(dt) {
   updateLight(dt);
   updateArrow();
   if (st === 'idle') return;
+  if (st === 'pipe' || st === 'guard') watch(dt);
   const pl = G.player; if (pl.health <= 0) { fail('you died'); return; }
   const px = pl.car ? pl.car.x : pl.ride ? pl.ride.x : pl.x, pz = pl.car ? pl.car.z : pl.ride ? pl.ride.z : pl.z;
   if (st === 'canoe') { stars(3); if (pl.swim && Math.hypot(px - canoeHome.x, pz - canoeHome.z) < 14) board(); return; }   // swam out to it: in you get

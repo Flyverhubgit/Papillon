@@ -11,7 +11,7 @@ function newCop() {
   let c = pool.pop();
   if (!c) {
     const o = lookOptions('m'), f = a => a.find(n => n.startsWith('Suit_')) || a.find(n => n.startsWith('Casual_')) || a[0];
-    const key = copKey(), p = makeNPC(key, { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x1b2a55, bottom: 0x141c33 }, 0, 0, 0);
+    const key = copKey(), p = makeNPC(key, { head: f(o.head), body: f(o.body), legs: f(o.legs), feet: f(o.feet), skin: pick([0xf1c9a5, 0xc68642, 0x8d5524, 0xe0ac7e]), hair: pick([0x1c1410, 0x4a2f1a, 0x101010]), top: 0x3d78e6, bottom: 0x1a2a5c }, 0, 0, 0);
     dressUp(p, 'police'); G.npcs.pop();   // officers are moved and animated here
     c = { p };
   }

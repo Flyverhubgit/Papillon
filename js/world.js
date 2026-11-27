@@ -1376,7 +1376,7 @@ export function buildSky(scene, renderer) {
   const hemi = new T.HemisphereLight(0xffffff, 0x555555, 1); scene.add(hemi);
   const sun = new T.DirectionalLight(0xffffff, 3); sun.castShadow = true;
   const sm = MOBILE ? 1024 : 2048; sun.shadow.mapSize.set(sm, sm);
-  const R = MOBILE ? 55 : 75, sc = sun.shadow.camera; sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.near = 10; sc.far = 520;
+  const R = MOBILE ? 38 : 52, sc = sun.shadow.camera; sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.near = 10; sc.far = 520;   // the shadow area round the player: smaller means fewer things redrawn for shadows, and sharper shadows near you
   sun.shadow.bias = -0.0005; sun.shadow.normalBias = .06; scene.add(sun); scene.add(sun.target);
   const cloudMat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, fog: false }), clouds = [];
   const ico = new T.IcosahedronGeometry(1, 1);
