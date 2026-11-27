@@ -400,13 +400,38 @@ export function updateNPCs(dt) {
     n.mixer.update(dt);
   }
 }
-const BIKE_SEAT = { back: .2, y: .42 }, LONG = { smg: 1, shotgun: 1, rifle: 1, sniper: 1, rocket: 1 };
+const BIKE_SEAT = { back: .2, y: .06 }, LONG = { smg: 1, shotgun: 1, rifle: 1, sniper: 1, rocket: 1 };
 const BEND_AX = new T.Vector3(), BEND_P = new T.Quaternion(), BEND_R = new T.Quaternion(), BEND_Q = new T.Quaternion();
+// a rider sits on the seat, feet on the pegs and hands on the bars: each limb is bent to reach its spot (works on the classic figures)
+const IK = [0, 0, 0, 0, 0, 0, 0].map(() => new T.Vector3()), IKQ = new T.Quaternion(), IKQ2 = new T.Quaternion();
+function ikAim(bone, child, tgt) {
+  bone.updateWorldMatrix(true, false); child.updateWorldMatrix(true, false); bone.getWorldPosition(IK[0]); child.getWorldPosition(IK[1]);
+  IK[1].sub(IK[0]).normalize(); IK[2].subVectors(tgt, IK[0]).normalize(); IKQ.setFromUnitVectors(IK[1], IK[2]);
+  bone.getWorldQuaternion(IKQ2).premultiply(IKQ); bone.parent.getWorldQuaternion(IKQ); bone.quaternion.copy(IKQ.invert().multiply(IKQ2)); bone.updateMatrix(); bone.updateMatrixWorld(true);
+}
+function ikLimb(a, b, c, tgt, pole) {
+  a.updateWorldMatrix(true, false); b.updateWorldMatrix(true, false); c.updateWorldMatrix(true, false);
+  const p0 = IK[3].setFromMatrixPosition(a.matrixWorld), l1 = IK[4].setFromMatrixPosition(b.matrixWorld).distanceTo(p0), l2 = IK[5].setFromMatrixPosition(c.matrixWorld).distanceTo(IK[4]);
+  const u = IK[6].subVectors(tgt, p0), d = Math.min(Math.max(u.length(), .05), l1 + l2 - .002); u.normalize();
+  const x = (d * d + l1 * l1 - l2 * l2) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - x * x)), pp = pole.clone().addScaledVector(u, -pole.dot(u)).normalize();
+  const mid = p0.clone().addScaledVector(u, x).addScaledVector(pp, h), end = p0.clone().addScaledVector(u, d);
+  ikAim(a, b, mid); ikAim(b, c, end);
+}
+const PEG = new T.Vector3(), POLE = new T.Vector3();
+export function bikePose(n, chop) {
+  if (!n.ik) { const f = k => n.h.getObjectByName(k), L = ['UpperLegL', 'LowerLegL', 'FootL', 'UpperArmL', 'LowerArmL', 'WristL', 'UpperLegR', 'LowerLegR', 'FootR', 'UpperArmR', 'LowerArmR', 'WristR'].map(f); n.ik = L.every(Boolean) ? L : 'no'; }
+  if (n.ik === 'no') return; const q = n.ik; n.h.updateMatrixWorld(true);
+  for (const sd of [1, -1]) {
+    const o = sd > 0 ? 0 : 6, w = (x, y, z) => n.h.localToWorld(PEG.set(x, y, z)).clone(), dir = (x, y, z) => POLE.set(x, y, z).transformDirection(n.h.matrixWorld).clone();
+    ikLimb(q[o], q[o + 1], q[o + 2], w(sd * .2, chop ? .22 : .26, chop ? .8 : .38), dir(sd * .5, .1, 1));
+    ikLimb(q[o + 3], q[o + 4], q[o + 5], w(sd * (chop ? .3 : .34), chop ? 1.38 : 1.0, chop ? .52 : .62), dir(sd * .6, -.4, -.3));
+  }
+}
 export function animPlayer(dt) {
   const p = G.player;
   if (p.car && p.car.spec.bike) {   // on a motorbike you sit in the open and lean with it
     const c = p.car; p.h.visible = true; p.h.rotation.order = 'YXZ'; p.h.position.set(c.x - Math.cos(c.h) * BIKE_SEAT.back, BIKE_SEAT.y, c.z + Math.sin(c.h) * BIKE_SEAT.back); p.h.rotation.y = c.h + Math.PI / 2; p.h.rotation.z = c.lean || 0;
-    for (const k in p.guns) p.guns[k].visible = false; anim(p, 'Drive'); p.mixer.update(dt); return;
+    for (const k in p.guns) p.guns[k].visible = false; anim(p, 'Drive'); p.mixer.update(dt); p.h.position.y += c.g.position.y; bikePose(p, c.type === 'chopper'); return;
   }
   if (p.ride && p.ride.boat && p.ride.seat) {   // in a boat you sit at the wheel, in the open
     const b = p.ride, s = b.seat, ch = Math.cos(b.h), sh = Math.sin(b.h); p.h.visible = true; p.h.rotation.order = 'YXZ';
@@ -956,7 +981,7 @@ function rideBike(c) {
   if (!c.rider) return;
   if (!c.ai || c.dead) { c.rider.h.visible = false; if (c.type !== 'chopper') riders.push(c.rider); c.rider = null; return; }
   const r = c.rider; r.h.position.set(c.x - Math.cos(c.h) * BIKE_SEAT.back, BIKE_SEAT.y + c.g.position.y, c.z + Math.sin(c.h) * BIKE_SEAT.back); r.h.rotation.y = c.h + Math.PI / 2; r.h.rotation.z = c.lean || 0;
-  const far = Math.hypot(c.x - G.player.x, c.z - G.player.z) > 150; r.h.visible = !far; if (!far) { anim(r, 'Drive'); r.mixer.update(.016); }
+  const far = Math.hypot(c.x - G.player.x, c.z - G.player.z) > 150; r.h.visible = !far; if (!far) { anim(r, 'Drive'); r.mixer.update(.016); bikePose(r, c.type === 'chopper'); }
 }
 // outside the city cars follow the ground: lifted to its height and tipped along the slope
 export function groundCar(c) {
