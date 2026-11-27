@@ -611,7 +611,7 @@ export function knockPed(p, vx, vz) {
   if (sp > 5) {   // a hard hit (a car, a blast): thrown through the air, tumbling, with blood. Very hard and they do not get up again
     p.kx = vx * .75; p.kz = vz * .75; p.fy = .05; p.fvy = Math.min(8.5, 1.5 + sp * .38); p.spin = 0; p.spinV = rr(4, 9) * (rnd() < .5 ? -1 : 1);
     if (G.physDoll && p.h.visible) G.physDoll(p, p.x, p.gy || 0, p.z, p.kx * 1.1, p.fvy * .8, p.kz * 1.1, p.yaw);   // real physics: the body tumbles, bounces off cars and walls
-    if (G.blood) G.blood(p.x, 1, p.z, sp > 11 ? 10 : 5, vx, vz); if (sp > 11) { p.dead = true; p.t = 16; if (G.stat) G.stat('kills'); }
+    if (G.blood) G.blood(p.x, 1, p.z, sp > 11 ? 10 : 5, vx, vz); if (sp > 7) { p.dead = true; p.t = 16; if (G.stat) G.stat('kills'); }
   } else { p.kx = vx * .35; p.kz = vz * .35; }
   return true;
 }
@@ -1341,8 +1341,8 @@ export function driveCar(car, thr, steer, hb, dt) {
     if (r.hit) {
       const vn = car.vx * r.nx + car.vz * r.nz, pr = r.prop;
       if (pr && !pr.gone && vn < 0 && (-vn > pr.need || sp.tank) && G.breakProp) {   // street furniture gives way: the car ploughs on, a bit slower and a bit dented
-        G.breakProp(pr, car.vx, car.vz); car.x = car.x; const lose = sp.tank ? 1 : (pr.kind === 'lamp' || pr.kind === 'shelter' ? .72 : .88); car.vx *= lose; car.vz *= lose; impact = Math.max(impact, -vn * (1 - lose) * 3);
-        if (!sp.tank) car.hp -= (pr.kind === 'lamp' || pr.kind === 'shelter' ? 3 : 1) / toughOf(sp); /* knocking over a lamp or a bench no longer brings the police */
+        G.breakProp(pr, car.vx, car.vz); car.x = car.x; const lose = sp.tank ? 1 : (pr.kind === 'lamp' || pr.kind === 'shelter' ? .72 : .93); car.vx *= lose; car.vz *= lose; impact = Math.max(impact, pr.kind === 'lamp' || pr.kind === 'shelter' ? -vn * (1 - lose) * 3 : 0);
+        if (!sp.tank) car.hp -= (pr.kind === 'lamp' || pr.kind === 'shelter' ? 3 : .25) / toughOf(sp); /* knocking over a lamp or a bench no longer brings the police */
       } else { car.x += cp.x - ox; car.z += cp.z - oz; if (vn < 0) { car.vx -= 1.25 * vn * r.nx; car.vz -= 1.25 * vn * r.nz; car.vx *= .94; car.vz *= .94; impact = Math.max(impact, -vn); } }
     }
     for (const o of G.cars) {
