@@ -105,7 +105,7 @@ function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h
 addEventListener('resize', resize); resize();
 
 /* ----- graphics quality: Low / Medium / High (F6, or the Statistics menu). It sets the shadows, the fine graphics, the sharpness, and how far away things are drawn ----- */
-const QUAL = { low: { pr: 1, shadow: 0, view: .55, fancy: false, ped: 70, car: 150 }, med: { pr: 1.25, shadow: 2048, view: .8, fancy: false, ped: 90, car: 200 }, high: { pr: 2, shadow: 2048, view: 1, fancy: true, ped: 100, car: 260 } };
+const QUAL = { low: { pr: 1, shadow: 0, view: .5, fancy: false, ped: 50, car: 110, nat: 170, natS: 0 }, med: { pr: 1.25, shadow: 2048, view: .8, fancy: false, ped: 90, car: 200, nat: 280, natS: 70 }, high: { pr: 2, shadow: 2048, view: 1, fancy: true, ped: 100, car: 260, nat: 380, natS: 120 } };
 const QORDER = ['low', 'med', 'high'], QNAME = { low: 'Low', med: 'Medium', high: 'High' };
 G.Q = Object.assign({}, QUAL.high);
 function applyQuality(q, save) {
@@ -631,7 +631,7 @@ function sim(dt) {
   cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; }
   if (playing) { streamWorld(dt); areaTick(dt); }
   updateRoomLight();
-  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); updateGps(dt); updateNature(G.player.x, G.player.z, dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
+  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); updateGps(dt); updateNature(G.player.x, G.player.z, dt, G.Q.nat, G.Q.natS); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
   updateCamera(dt);
   if (G.tipsy > G.time) { const k = Math.min(1, (G.tipsy - G.time) / 40); camera.rotateZ(Math.sin(G.time * 1.1) * .045 * k); camera.rotateY(Math.sin(G.time * .7) * .03 * k); }   /* a drink too many */
   G.skyUpdate(dt, G.hour, tgt, camera); if (!MOBILE || frameN % 2 === 0) G.seaUpdate(G.time); G.wheelUpdate(dt);
@@ -675,7 +675,7 @@ async function boot() {
   { const t = newCar('tank'); t.x = -140; t.z = 357.5; t.h = 0; t.g.position.set(t.x, 0, t.z); G.dockTank = t; }   // an army tank left in the docks, yours if you find it
   setupEscape(); setupLair(scene); setupEstates(scene);   // Victor, the old bridge and the hide-out under it (before the physics, so its walls are solid there too)
   status.textContent = 'Starting the physics'; await initPhysics(); setupJobs(scene);
-  { let q = null; try { q = localStorage.getItem('papillon.quality'); let old = localStorage.getItem('papillon.fancy'); if (!q && old === '0') q = 'med'; } catch (e) { } applyQuality(QUAL[q] ? q : MOBILE ? 'med' : 'high', false); }
+  { let q = null; try { q = localStorage.getItem('papillon.quality'); let old = localStorage.getItem('papillon.fancy'); if (!q && old === '0') q = 'med'; } catch (e) { } applyQuality(QUAL[q] ? q : MOBILE ? 'low' : 'high', false); }
   status.textContent = 'Preparing the graphics'; await new Promise(r => setTimeout(r, 30));
   try {   // draw everything once, even what is out of view, so nothing has to be sent to the graphics card in the middle of the game
     sim(.001);   // one step first: the fire, flash and headlamp lights are created in it, and they must exist before the programs are made

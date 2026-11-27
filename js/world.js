@@ -2,7 +2,7 @@
 import * as T from 'three';
 import { natAdd, scatter, buildNature, setDensity } from './nature.js';
 
-export const MOBILE = matchMedia('(pointer:coarse)').matches;
+export const MOBILE = matchMedia('(pointer:coarse)').matches || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ''));   // phones, tablets, and iPads (which call themselves Macs)
 export const G = {}; G.cells = []; G.targets = [];   // targets: other things that can be shot, punched or run into (prison guards, police boats): { x, z, y, top, r, car, alive(), hit(dmg, dx, dz) }                       // shared game state
 
 /* ---------- random ---------- */
@@ -868,7 +868,7 @@ function makeSigns(scene) {
 
 /* ---------- build everything ---------- */
 export function buildWorld(scene, models) {
-  prepModels(models); NATOK = !!models.nat; setDensity(MOBILE ? .5 : 1);
+  prepModels(models); NATOK = !!models.nat; setDensity(MOBILE ? .3 : 1);
   // land
   FB.setT(0, 0, 0, 0);
   const LX1 = 241, LZ = 21 - ZMIN, LZS = ZMAX + 21;
