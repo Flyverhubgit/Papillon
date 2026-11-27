@@ -1,5 +1,6 @@
 // Papillon - small rules of the city: robbing people at gunpoint, the airport as a no-go area, breaking out of prison.
-import { G, AIRPORT, JAIL, landHeight } from './world.js';
+import * as T from 'three';
+import { G, AIRPORT, JAIL, landHeight, addBox } from './world.js';
 import { crime, panicPeds, newCar, removeCar, makeNPC, playAnim, clearLine, dressUp } from './actors.js';
 import { GUNS, updateHeist } from './shops.js';
 
@@ -20,10 +21,35 @@ function keepHome() {
 // Prison guards: two by the gate, one in the yard. They leave a prisoner alone inside the walls, but anyone going out through the gate,
 // and any visitor who walks in, gets shot at until they are well away from the island.
 const guards = []; G.prisonGuards = guards; let alarm = 0, escT = 0, tookBoat = false;
+// ---- the front gate and the two guard huts: the gate is shut while you serve your time, then it slides open and you can walk out ----
+const SENTENCE = 60;
+let gate = null, jailT = 0, wasJailed = false, relT = 0, jailHud = null;
+function buildGate() {
+  const J = JAIL, x = J.x + 23.2, y = landHeight(x, J.z) - .4, iron = new T.MeshStandardMaterial({ color: 0x2a2d33, roughness: .7, metalness: .3 });
+  const leaf = side => { const g = new T.Group(); for (let i = 0; i <= 8; i++) { const b = new T.Mesh(new T.BoxGeometry(.09, 4.6, .09), iron); b.position.set(0, 2.4, side * (.15 + i * .38)); g.add(b); }
+    for (const h of [.2, 2.3, 4.5]) { const r = new T.Mesh(new T.BoxGeometry(.12, .14, 3.3), iron); r.position.set(0, h + .1, side * 1.7); g.add(r); } return g; };
+  const L = leaf(-1), R = leaf(1); for (const g of [L, R]) { g.position.set(x, y, J.z); G.scene.add(g); }
+  gate = { L, R, k: 0, to: 0, box: addBox(J.x + 22.9, J.z - 3.3, J.x + 24.4, J.z + 3.3, 6), z: J.z, x, y };
+  // the huts, one each side of the gate, with a window onto the yard, a desk and a chair
+  const wall = new T.MeshStandardMaterial({ color: 0xd9d2bd, roughness: .9 }), roof = new T.MeshStandardMaterial({ color: 0x4a4f57, roughness: .8 }), glass = new T.MeshStandardMaterial({ color: 0x9fd0e8, transparent: true, opacity: .28, roughness: .1 }), wood = new T.MeshStandardMaterial({ color: 0x6b4a2a, roughness: .9 });
+  for (const sz of [-1, 1]) {
+    const cx = J.x + 21.6, cz = J.z + sz * 5.2, gy = landHeight(cx, cz), g = new T.Group(); g.position.set(cx, gy, cz);
+    const bx = (w, h, d, m, px, py, pz) => { const o = new T.Mesh(new T.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); g.add(o); return o; };
+    bx(.14, 2.6, 2.7, wall, 1.35, 1.3, 0); bx(2.8, 2.6, .14, wall, 0, 1.3, -1.28); bx(2.8, 2.6, .14, wall, 0, 1.3, 1.28);   // back and the two sides
+    bx(.14, .95, 2.7, wall, -1.35, .475, 0); bx(.14, .3, 2.7, wall, -1.35, 2.45, 0); bx(.14, 1.35, 2.5, glass, -1.35, 1.6, 0);   // front: low wall, glass, header
+    bx(3.2, .22, 3.1, roof, 0, 2.72, 0); bx(2.8, .08, 2.7, wood, 0, .04, 0);
+    bx(.5, .08, 2.2, wood, -.95, .95, 0); bx(.06, .95, 2.2, wood, -.95, .47, 0);   // the desk under the window
+    bx(.45, .06, .45, wood, .2, .46, 0); bx(.06, .5, .45, wood, .42, .7, 0);   // the chair
+    G.scene.add(g); addBox(cx - 1.4, cz - 1.4, cx + 1.4, cz + 1.4, 3);
+  }
+}
+function jailHudSet(s) { if (!jailHud) { jailHud = document.createElement('div'); jailHud.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,24,32,.72);color:#fff;font:600 14px system-ui,sans-serif;pointer-events:none;z-index:6;display:none'; document.body.appendChild(jailHud); } jailHud.style.display = s ? 'block' : 'none'; if (s) jailHud.textContent = s; }
+
 function prisonGuards(dt) {
   const p = G.player, d = Math.hypot(p.x - JAIL.x, p.z - JAIL.z);
   if (!guards.length) { const COP = { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', top: 0xd8c98e, bottom: 0x5a6a48 };
-    for (const [ox, oz, yaw] of [[21.5, -5.2, -Math.PI / 2], [21.5, 5.2, -Math.PI / 2], [-6, 9, Math.PI / 2]]) { const x = JAIL.x + ox, z = JAIL.z + oz, n = makeNPC('pm', Object.assign({ skin: 0xe0ac7e, hair: 0x1c1410 }, COP), x, z, yaw); n.h.position.y = landHeight(x, z); n.far = true; dressUp(n, 'guard'); const g = { n, x, z, yaw, cd: 1, hp: 60, down: 0 }; guards.push(g);
+    buildGate();
+    for (const [ox, oz, yaw] of [[21.8, -5.2, -Math.PI / 2], [21.8, 5.2, -Math.PI / 2], [-6, 9, Math.PI / 2]]) { const x = JAIL.x + ox, z = JAIL.z + oz, n = makeNPC('pm', Object.assign({ skin: 0xe0ac7e, hair: 0x1c1410 }, COP), x, z, yaw); n.h.position.y = landHeight(x, z); n.far = true; dressUp(n, 'guard'); const g = { n, x, z, yaw, cd: 1, hp: 60, down: 0, sit: ox > 20 }; if (g.sit) n.h.position.y -= .06; guards.push(g);
       G.targets.push({ get x() { return g.x; }, get z() { return g.z; }, y: n.h.position.y, top: 2.1, r: .5, person: true, alive: () => g.down <= 0,
         hit: (dmg, dx, dz) => { if (g.down > 0) return; g.hp -= dmg; if (G.blood) G.blood(g.x, n.h.position.y + 1.2, g.z, dmg > 15 ? 6 : 3, (dx || 0) * 5, (dz || 0) * 5); alarm = Math.max(alarm, 40);
           if (g.hp <= 0) { g.down = 150; playAnim(n, 'Death', true, 1.2); crime(Math.min(6, Math.max(4, G.stars + 1)), false); if (G.stat) G.stat('kills'); } else crime(Math.min(6, Math.max(3, G.stars)), false); } }); }
@@ -34,9 +60,20 @@ function prisonGuards(dt) {
   // taking the prison launch is stealing it: the police will be waiting
   if (escT > 0) escT -= dt;
   if (p.ride && p.ride === G.prisonBoat) { if (!tookBoat) { tookBoat = true; crime(escT > 0 ? 3 : 2, false); G.say(escT > 0 ? 'You escaped in the prison launch! The police are looking for you. Head east to the city.' : 'You took the prison launch. The police saw that.', 6); } } else tookBoat = false;
+  // the sentence: the gate stays shut until your time is up, then it slides open for a while
+  { const mission = G.escapeDBG && G.escapeDBG.st !== 'idle';
+    if (G.jailed && !wasJailed && !mission) { jailT = SENTENCE; relT = 0; }
+    wasJailed = G.jailed;
+    if (G.jailed && !mission && relT <= 0) {
+      if (jailT <= 0) jailT = 30;
+      jailT -= dt; jailHudSet('Time left in prison: ' + Math.max(0, Math.ceil(jailT)) + ' s   (or find a way out...)');
+      if (jailT <= 0) { relT = 40; jailHudSet(''); G.say('Guard: "Right, your time is up. The gate is opening. Out you go."', 6); }
+    } else jailHudSet("");
+    if (relT > 0) { relT -= dt; if (relT <= 0 && G.jailed) jailT = 30; }
+    if (gate) { gate.to = relT > 0 ? 1 : 0; gate.k += Math.sign(gate.to - gate.k) * Math.min(Math.abs(gate.to - gate.k), dt * .3); gate.L.position.z = gate.z - gate.k * 3.2; gate.R.position.z = gate.z + gate.k * 3.2; gate.box.off = gate.k > .6; } }
   if (d > 140) { alarm = 0; return; }
   const inYard = Math.abs(p.x - JAIL.x) < 23.5 && Math.abs(p.z - JAIL.z) < 19.5, onIsle = d < 95 && !p.swim && !p.ride;
-  if (G.jailed) { if (!inYard) { G.jailed = false; alarm = 30; escT = 900; crime(2, false); G.say('You broke out! The guards are shooting: get down to the boat.', 5); } }
+  if (G.jailed) { if (!inYard && relT > 0) { G.jailed = false; G.say('You walk out through the open gate. You are free.', 5); } else if (!inYard) { G.jailed = false; alarm = 30; escT = 900; crime(2, false); G.say('You broke out! The guards are shooting: get down to the boat.', 5); } }
   else if (inYard && alarm <= 0 && !G.inside) { alarm = 30; crime(3, false); G.say('Intruder in the prison! The guards open fire.', 4); }
   if (alarm > 0) { alarm -= dt; if (!onIsle && d > 70) alarm = 0; }
   for (const g of guards) {
@@ -44,8 +81,8 @@ function prisonGuards(dt) {
     if (g.down > 0) { g.down -= dt; if (g.down <= 0 && gd < 110) g.down = 1; else if (g.down <= 0) { g.hp = 60; playAnim(g.n, 'Idle'); } continue; }   // shot down: he lies there, and a new guard is on the post when you come back later
     if (alarm > 0 && gd < 75) {
       g.n.h.rotation.y = Math.atan2(dx, dz); playAnim(g.n, 'Aim1'); g.cd -= dt;
-      if (g.cd <= 0 && clearLine(g.x, g.z, p.x, p.z)) { g.cd = .9 + Math.random() * 1.1; const hit = !p.ride && Math.random() < (gd < 25 ? .32 : .16); G.tracer(g.x, g.n.h.position.y + 1.3, g.z, p.x + (hit ? 0 : (Math.random() - .5) * 3), p.y + 1.2, p.z + (hit ? 0 : (Math.random() - .5) * 3)); if (G.sfx) G.sfx.shot(gd > 25); if (hit) G.copHurt(9); }
-    } else { g.n.h.rotation.y = g.yaw; playAnim(g.n, 'Idle'); }
+      if (g.cd <= 0 && (g.sit || clearLine(g.x, g.z, p.x, p.z))) { g.cd = .9 + Math.random() * 1.1; const hit = !p.ride && Math.random() < (gd < 25 ? .32 : .16); G.tracer(g.x, g.n.h.position.y + 1.3, g.z, p.x + (hit ? 0 : (Math.random() - .5) * 3), p.y + 1.2, p.z + (hit ? 0 : (Math.random() - .5) * 3)); if (G.sfx) G.sfx.shot(gd > 25); if (hit) G.copHurt(9); }
+    } else { g.n.h.rotation.y = g.yaw; playAnim(g.n, g.sit && g.down <= 0 ? 'Sit' : 'Idle'); }
   }
 }
 export function updateExtras(dt) {

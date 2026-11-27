@@ -107,14 +107,32 @@ function knockOut() {
   if (st !== 'guard') return; const g = guard(); if (!g) return;
   if (G.sfx && G.sfx.punch) G.sfx.punch(); notice = 0;
   g.down = 900; playAnim(g.n, 'Death', true, 1.2); drop(koM); koM = null; st = 'wall';
-  const wx = JAIL.x - 21.5, wz = JAIL.z - 1;
-  goalM = addMarker({ x: wx, z: wz, y: landHeight(wx, wz), type: 'story', icon: '!', text: 'CLIMB THE WALL (E)', color: 0xd9731f, onEnter: climb });
-  setHud('Guard out cold. Climb the west wall of the yard (press E at the mark)');
-  G.say('He is out cold, and you have his keys. Now the wall on the west side. Quick, before the shift changes.', 7);
+  const wx = JAIL.x - 22.4, wz = JAIL.z - 1;
+  goalM = addMarker({ x: wx, z: wz, y: landHeight(wx, wz), type: 'story', icon: '!', text: 'CLIMB THE LADDER (E)', color: 0xd9731f, onEnter: climb });
+  setHud('Guard out cold. Climb the ladder on the west wall of the yard (press E at the mark)');
+  G.say('He is out cold, and you have his keys. Now the ladder on the west wall. Quick, before the shift changes.', 7);
+}
+let climbT = -1;
+function buildLadder() {   // a wooden ladder leaning on the inside of the west wall: the way over
+  const wood = new T.MeshStandardMaterial({ color: 0x8a6a3c, roughness: .9 }), x = JAIL.x - 23.2, z = JAIL.z - 1, y0 = landHeight(x, z), H = 5.9, g = new T.Group();
+  for (const dz of [-.32, .32]) { const r = new T.Mesh(new T.BoxGeometry(.09, H, .09), wood); r.position.set(.2, H / 2, dz); r.rotation.z = -.07; g.add(r); }
+  for (let i = 0; i < 12; i++) { const rg = new T.Mesh(new T.BoxGeometry(.06, .06, .64), wood); rg.position.set(.2 - (.4 + i * .45) * .07, .4 + i * .45, 0); g.add(rg); }
+  g.position.set(x, y0, z); G.scene.add(g);
 }
 function climb() {
-  if (st !== 'wall') return; const p = G.player; drop(goalM); goalM = null; dropPipe();
-  p.x = p.px = JAIL.x - 28.5; p.z = p.pz = JAIL.z - 1; p.y = landHeight(p.x, p.z) + 1; p.vy = 3; p.isle = true; p.swim = false; stars(3);
+  if (st !== 'wall') return; drop(goalM); goalM = null; dropPipe(); st = 'climb'; climbT = 0;
+  const p = G.player; p.x = p.px = JAIL.x - 22.9; p.z = p.pz = JAIL.z - 1; p.yaw = -Math.PI / 2; setHud('Climbing...');
+}
+function climbing(dt) {
+  const p = G.player, y0 = landHeight(JAIL.x - 23, JAIL.z - 1); climbT += dt; const t = climbT / 2.2;
+  if (t < .65) { const k = t / .65; p.x = p.px = JAIL.x - 22.9 - .3 * k; p.z = p.pz = JAIL.z - 1; p.y = y0 + 5.9 * k; }
+  else if (t < 1) { const k = (t - .65) / .35; p.x = p.px = JAIL.x - 23.2 - 5.3 * k; p.z = p.pz = JAIL.z - 1; p.y = y0 + 5.9 - (5.9 - (landHeight(JAIL.x - 28.5, JAIL.z - 1) - y0 + 1)) * k * k; }
+  else { climbT = -1; overWall(); return; }
+  p.vy = 0;
+}
+function overWall() {
+  const p = G.player;
+  p.x = p.px = JAIL.x - 28.5; p.z = p.pz = JAIL.z - 1; p.y = landHeight(p.x, p.z) + 1; p.vy = 0; p.isle = true; p.swim = false; stars(3);
   st = 'canoe'; goalM = addMarker({ x: canoeHome.x, z: canoeHome.z, y: 0, type: 'goal', icon: '!', text: 'HIDDEN CANOE', color: 0xc8a050, onEnter: board });
   setHud('ALARM! Run north round the island to the canoe hidden in the reeds on the shore!');
   G.say('Over the wall! The alarm is ringing, the guards are shooting. The canoe is hidden in the reeds on the north shore: RUN! Stay out of the searchlight.', 8);
@@ -138,7 +156,7 @@ export function setupEscape() {
   const J = JAIL;
   let r = 30; while (r < 140 && landHeight(J.x + DIR.x * r, J.z + DIR.z * r) > .3) r += 1;   // the north shore of the island
   canoeHome = { x: J.x + DIR.x * (r + 12), z: J.z + DIR.z * (r + 12) }; canoe = makeCanoe(canoeHome.x, canoeHome.z, 0); hideCanoe(canoeHome.x, canoeHome.z);
-  buildLight();
+  buildLight(); buildLadder();
   const dx = J.x - 5, dz = J.z + 7; dega = makeNPC('pm', { head: 'Casual_Head', body: 'Casual_Body', legs: 'Casual_Legs', feet: 'Casual_Feet', skin: 0xc68642, hair: 0x8a8a8a, top: 0xd9731f, bottom: 0xd9731f }, dx, dz, Math.PI / 2);
   dega.h.position.y = landHeight(dx, dz); dega.far = true;
   addMarker({ x: dx + .9, z: dz, y: landHeight(dx, dz), type: 'story', icon: '★', text: 'DEGA', color: 0xd9731f, onEnter: talk });
@@ -170,6 +188,7 @@ export function updateEscape(dt) {
   updateArrow();
   if (st === 'idle') return;
   if (st === 'pipe' || st === 'guard') watch(dt);
+  if (st === 'climb') { climbing(dt); return; }
   const pl = G.player; if (pl.health <= 0) { fail('you died'); return; }
   const px = pl.car ? pl.car.x : pl.ride ? pl.ride.x : pl.x, pz = pl.car ? pl.car.z : pl.ride ? pl.ride.z : pl.z;
   if (st === 'canoe') { stars(3); if (pl.swim && Math.hypot(px - canoeHome.x, pz - canoeHome.z) < 14) board(); return; }   // swam out to it: in you get

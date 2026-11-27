@@ -1042,7 +1042,7 @@ function jail(scene) {
   wall(J.x + W, J.z - D, J.x + W, J.z - 3.2, 5.5); wall(J.x + W, J.z + 3.2, J.x + W, J.z + D, 5.5);   // the east wall, with the gate gap in the middle
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const x = J.x + sx * W, z = J.z + sz * D, y = landHeight(x, z) - .6;   // a watchtower on every corner
     SB.setT(x, y, z, 0); SB.box(STONE2, 3.4, 10.5, 3.4, 0, 5.25, 0); SB.box(BAR, 3.9, 1.3, 3.9, 0, 10.2, 0); SB.box(ROOF, 4.6, .4, 4.6, 0, 11.6, 0); SB.box(LIT, 1, .5, 1, 0, 11, 0); addBox(x - 1.7, z - 1.7, x + 1.7, z + 1.7, 11); }
-  { const x = J.x + W, y = landHeight(x, J.z) - .4; SB.setT(x, y, J.z, 0); SB.box(STONE2, 1.2, .8, 8.2, 0, 6.6, 0); SB.box(BAR, .25, 5.6, 2.9, .4, 3, -4.6); }   // the lintel over the gate and the gate leaf swung open
+  { const x = J.x + W, y = landHeight(x, J.z) - .4; SB.setT(x, y, J.z, 0); SB.box(STONE2, 1.2, .8, 8.2, 0, 6.6, 0); }   // the lintel over the gate (the gate itself is built in extras.js)
   { const x = J.x - 4, z = J.z - 11, y = landHeight(x, z) - .8;   // the cell block
     SB.setT(x, y, z, 0); SB.box(STONE, 30, 8.5, 9, 0, 4.25, 0); SB.box(ROOF, 30.8, .5, 9.8, 0, 8.7, 0);
     for (const yy of [2.6, 5.9]) for (let k = -6; k <= 6; k++) { if (yy < 3 && k === 0) continue; SB.box(BAR, 1.1, 1.3, .12, k * 2.2, yy, 4.52); for (const o of [-.3, 0, .3]) SB.box(STONE2, .07, 1.3, .16, k * 2.2 + o, yy, 4.56); }
