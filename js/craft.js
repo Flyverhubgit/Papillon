@@ -134,14 +134,14 @@ function flyPlane(pl, thr, steer, up, dt, on) {
   pl.s -= pl.s * (air ? .05 : (on && thr > 0 ? .05 : .9)) * dt; if (!on && air) pl.s -= 3 * dt;
   pl.s = clamp(pl.s, 0, 58);
   pl.h -= steer * (air ? .85 : 1.1 * Math.min(1, pl.s / 8)) * dt;
-  if (on && air && (pl.x < -1085 || pl.x > 1600 || Math.abs(pl.z) > 1060)) {   // the edge of the world: the plane banks back towards the city by itself
+  if (on && air && (pl.x < -1085 || pl.x > 2960 || Math.abs(pl.z) > 1070)) {   // the edge of the world: the plane banks back towards the city by itself
     let dh = Math.atan2(pl.z, -pl.x) - pl.h; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
     pl.h += clamp(dh, -1, 1) * Math.min(1, dt * 1.6); if (!(G.edgeT > G.time) && G.say) { G.edgeT = G.time + 5; G.say('End of the map - turning back', 3); }
   }
   const fx = Math.cos(pl.h), fz = -Math.sin(pl.h);
   if (air) { const want = pl.s < 22 ? -9 : up > 0 ? up * 26 : up * 15; pl.vy += (want - pl.vy) * Math.min(1, dt * 2.4); }   // climbs about 25 degrees: the tallest tower is 142 m, so it can be cleared from 60 m away
   else if (pl.s > 26 && up > 0) pl.vy = 3; else pl.vy = 0;
-  let nx = clamp(pl.x + fx * pl.s * dt, -1100, 1620), nz = clamp(pl.z + fz * pl.s * dt, -1080, 1080);
+  let nx = clamp(pl.x + fx * pl.s * dt, -1100, 2980), nz = clamp(pl.z + fz * pl.s * dt, -1090, 1090);
   const nf = heliFloor(nx, nz);
   if (nf > pl.y + .8) { if (on && pl.s > 12) { G.hurt(Math.min(90, pl.s * 2)); if (G.sfx) G.sfx.crash(20); G.say('Crash!', 2); } pl.s = 0; pl.vy = Math.min(pl.vy, 0); }
   else { pl.x = nx; pl.z = nz; }
@@ -159,7 +159,7 @@ export function heliFloor(x, z) { if (inWater(x, z) && landHeight(x, z) < .2) re
 export function flyHeli(hl, thr, steer, up, dt, on) {
   if (hl.dead) {   // shot down: the engine is out, it spins and falls
     hl.spin += (0 - hl.spin) * Math.min(1, dt * .8); if (hl.rotor) { hl.rotor.rotation.y += hl.spin * 26 * dt; hl.h += 2.4 * dt; } if (hl.prop) hl.prop.rotation.x += hl.spin * 18 * dt;
-    hl.vy -= 11 * dt; hl.vx -= hl.vx * .3 * dt; hl.vz -= hl.vz * .3 * dt; const nx = clamp(hl.x + hl.vx * dt, -1100, 1620), nz = clamp(hl.z + hl.vz * dt, -1080, 1080);
+    hl.vy -= 11 * dt; hl.vx -= hl.vx * .3 * dt; hl.vz -= hl.vz * .3 * dt; const nx = clamp(hl.x + hl.vx * dt, -1100, 2980), nz = clamp(hl.z + hl.vz * dt, -1090, 1090);
     if (heliFloor(nx, nz) > hl.y + .8) { hl.vx = hl.vz = 0; } else { hl.x = nx; hl.z = nz; }
     hl.y += hl.vy * dt; hl.pitch += (.25 - hl.pitch) * Math.min(1, dt * 2); hl.roll += (.3 - hl.roll) * Math.min(1, dt * 2); hl.air = true; hl.v = Math.hypot(hl.vx, hl.vy, hl.vz); placeHeli(hl); return;
   }
@@ -174,7 +174,7 @@ export function flyHeli(hl, thr, steer, up, dt, on) {
   const drag = air ? .55 : 6; hl.vx -= hl.vx * drag * dt; hl.vz -= hl.vz * drag * dt;
   const sp = Math.hypot(hl.vx, hl.vz); if (sp > 36) { hl.vx *= 36 / sp; hl.vz *= 36 / sp; }
   let nx = hl.x + hl.vx * dt, nz = hl.z + hl.vz * dt;
-  nx = clamp(nx, -1100, 1620); nz = clamp(nz, -1080, 1080);
+  nx = clamp(nx, -1100, 2980); nz = clamp(nz, -1090, 1090);
   const nf = heliFloorWide(nx, nz);
   if (nf > hl.y + .8) { hl.vx *= -.35; hl.vz *= -.35; } else { hl.x = nx; hl.z = nz; }   // a wall, a roof edge or a hillside in the way of any part of it: it bounces back
   hl.y += hl.vy * dt; if (hl.y > 320) { hl.y = 320; hl.vy = 0; }
