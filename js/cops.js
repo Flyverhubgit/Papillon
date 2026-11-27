@@ -50,7 +50,7 @@ export function updateCops(dt) {
     const c = G.cops[i], p = c.p, dx = px - c.x, dz = pz - c.z, d = Math.hypot(dx, dz) || .01;
     if (c.indoor && c.state !== 'down' && (!G.inside || G.stars === 0)) { retire(c); continue; }
     if (c.state === 'down') { c.t -= dt; if (p.pistol) p.pistol.visible = false; playAnim(p, 'Death', true, 1.2); if ((c.t <= 0 && d > 30) || c.t < -45) { retire(c); continue; } }
-    else if (!c.indoor && (G.stars === 0 || d > 60 || !reach || (pl.car && pv > 12 && d > 22) || !c.car || c.car.dead)) {
+    else if (!c.indoor && (G.stars === 0 || d > 60 || !reach || (pl.car && pv > 12 && d > 22))) {
       // nothing more to do here: walk back to the car and get in (or just leave if the car is gone)
       c.state = 'back'; if (p.pistol) p.pistol.visible = false;
       if (!c.car || c.car.dead) { c.t += dt; playAnim(p, 'Idle'); if (c.t > 5 && d > 25 || c.t > 40) { retire(c); continue; } }
