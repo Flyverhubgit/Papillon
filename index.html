@@ -22,7 +22,28 @@
   #ar{width:0;height:100%;background:#5ab0ff;transition:width .3s}
   #xhair{position:fixed;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;pointer-events:none;display:none;z-index:5;background:linear-gradient(#fff,#fff) center/2px 100% no-repeat,linear-gradient(#fff,#fff) center/100% 2px no-repeat;-webkit-mask:radial-gradient(circle,transparent 3px,#000 3.5px);mask:radial-gradient(circle,transparent 3px,#000 3.5px);filter:drop-shadow(0 0 1px #000);opacity:.9}
   #job{left:50%;top:14px;transform:translateX(-50%);display:none;font:700 15px system-ui,sans-serif;padding:6px 14px;border-radius:99px;background:rgba(10,14,24,.62);color:#ffe27a;text-shadow:none;white-space:nowrap}
-  #bigmap{position:fixed;inset:0;width:100vw;height:100vh;display:none;z-index:30;background:#3f9cc2;cursor:pointer}
+  #bigmap{position:fixed;inset:0;width:100vw;height:100vh;display:none;z-index:30;background:#3f9cc2;cursor:grab;touch-action:none}
+  #mapui{position:fixed;inset:0;display:none;z-index:31;pointer-events:none;font:600 13px system-ui,sans-serif;color:#fff}
+  #mapui *{box-sizing:border-box}
+  #mapui .pn{pointer-events:auto;background:rgba(10,14,24,.82);border-radius:12px;padding:8px 10px;backdrop-filter:blur(4px)}
+  #mTop{position:absolute;left:12px;top:12px;width:min(330px,calc(100vw - 80px))}
+  #mQ{width:100%;padding:8px 10px;border-radius:8px;border:0;font:600 14px system-ui,sans-serif;background:#f4f1e8;color:#161a22;outline:0}
+  #mRes{max-height:34vh;overflow:auto;margin-top:6px}
+  .mRow{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px;cursor:pointer}
+  .mRow:hover{background:rgba(255,255,255,.12)}
+  .mRow b{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;font-size:12px;color:#fff}
+  .mRow span{flex:1}.mRow i{font-style:normal;opacity:.7;font-size:12px}
+  #mChips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .chip{padding:4px 9px;border-radius:99px;background:rgba(255,255,255,.14);cursor:pointer;user-select:none;font-size:12px}
+  .chip.on{background:#f2c21a;color:#161a22}
+  #mSide{position:absolute;left:12px;bottom:12px;width:min(330px,calc(100vw - 80px));max-height:42vh;overflow:auto}
+  #mTabs{display:flex;gap:6px;margin-bottom:6px}
+  #mTabs .chip{flex:1;text-align:center}
+  .mH{opacity:.65;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 3px}
+  #mBtns{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+  #mBtns button{pointer-events:auto;width:40px;height:40px;border-radius:10px;border:0;background:rgba(10,14,24,.82);color:#fff;font:700 20px system-ui,sans-serif;cursor:pointer}
+  #mGps{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:none}
+  #mGps button{margin-left:8px;border:0;border-radius:8px;padding:4px 10px;background:#e0463c;color:#fff;font:700 12px system-ui,sans-serif;cursor:pointer}
   body.playing #map{pointer-events:auto;cursor:pointer}
   #weapon{right:18px;top:136px;font:700 15px system-ui,sans-serif;padding:4px 10px;border-radius:99px;background:rgba(10,14,24,.55);text-shadow:none}
   body.playing #weapon,body.playing #speed{pointer-events:auto;cursor:pointer}
@@ -136,6 +157,12 @@
 <div id="vig"></div><div id="speedfx"></div>
 <canvas id="map" class="hud"></canvas>
 <canvas id="bigmap"></canvas>
+<div id="mapui">
+  <div id="mTop" class="pn"><input id="mQ" placeholder="Search places, jobs, areas..." autocomplete="off"><div id="mRes"></div><div id="mChips"></div></div>
+  <div id="mSide" class="pn"><div id="mTabs"><div class="chip on" data-t="act">Active</div><div class="chip" data-t="av">Available</div><div class="chip" data-t="dn">Done</div></div><div id="mList"></div></div>
+  <div id="mBtns"><button id="mX" title="Close (M)">&times;</button><button id="mIn">+</button><button id="mOut">&minus;</button><button id="mMe" title="Centre on me">&#9678;</button></div>
+  <div id="mGps" class="pn"><span id="mGt"></span><button id="mGx">Clear GPS</button></div>
+</div>
 <div id="stars" class="hud"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>
 <div id="clock" class="hud">09:00</div>
 <div id="money" class="hud">$0</div>

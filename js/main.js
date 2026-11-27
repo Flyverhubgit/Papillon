@@ -66,12 +66,13 @@ import { setupGangs, updateGangs, hitGang, GANGS } from './gangs.js';
 import { setupLair, updateLair } from './lair.js';
 import { setupEscape, updateEscape } from './escape.js';
 import { updateCops, clearCops } from './cops.js';
-import { setupMissions, updateMissions, startTaxiShift, startParamedic } from './missions.js';
+import { setupMissions, updateMissions, startTaxiShift, startParamedic, missionInfo } from './missions.js';
+import { setGps, updateGps } from './gps.js';
 import { updateFx, updateBreaks } from './fx.js';
 import { updateDemolish, updateWater, updateBrigade, updateBlastFx } from './demolish.js';
 import { updateExtras } from './extras.js';
 import { startNet, updateNet } from './net.js';
-import { setupEstates, updateEstates } from './estates.js';
+import { setupEstates, updateEstates, VILLA, RESIDENCE, ARMY, SILO } from './estates.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -250,10 +251,10 @@ function finishBusted() {
 }
 // minimap
 // ----- the big map (M, or tap the small map): the whole of Papillon with every place marked -----
-const bm = $('bigmap'), bx = bm.getContext('2d'); let mapOpen = false, mapT = 0;
+const bm = $('bigmap'), bx = bm.getContext('2d'); let mapOpen = false, mapT = 0, mapS = 1, mapW = 1, mapH = 1; const mv = { cx: 580, cz: 0, k: 1 };
 function drawBigMap() {
-  const W = bm.width = innerWidth, H = bm.height = innerHeight, X0 = -480, X1 = 1640, Z0 = -1060, Z1 = 1060, s = Math.min(W / (X1 - X0), H / (Z1 - Z0)), ox = (W - (X1 - X0) * s) / 2, oy = (H - (Z1 - Z0) * s) / 2;
-  const X = x => (x - X0) * s + ox, Y = z => (z - Z0) * s + oy, rect = (c, x0, z0, x1, z1) => { bx.fillStyle = c; bx.fillRect(X(x0), Y(z0), (x1 - x0) * s, (z1 - z0) * s); }, disc = (c, x, z, r) => { bx.fillStyle = c; bx.beginPath(); bx.arc(X(x), Y(z), r * s, 0, 7); bx.fill(); };
+  const W = bm.width = innerWidth, H = bm.height = innerHeight, s = Math.min(W / 2120, H / 2120) * mv.k; mapS = s; mapW = W; mapH = H;
+  const X = x => (x - mv.cx) * s + W / 2, Y = z => (z - mv.cz) * s + H / 2, rect = (c, x0, z0, x1, z1) => { bx.fillStyle = c; bx.fillRect(X(x0), Y(z0), (x1 - x0) * s, (z1 - z0) * s); }, disc = (c, x, z, r) => { bx.fillStyle = c; bx.beginPath(); bx.arc(X(x), Y(z), r * s, 0, 7); bx.fill(); };
   bx.fillStyle = '#3f9cc2'; bx.fillRect(0, 0, W, H);
   rect('#c8bf98', COAST, -1100, 1700, 1100); rect('#ddd4b6', COAST, -612, 241, ZMAX + 16); rect('#d6cfb4', 241, -770, 1220, 770); rect('#d6cfb4', COAST, ZMAX, 1220, 770); rect('#3f9cc2', HARB.x0 - 5, HARB.z0, HARB.x1, HARB.z1);
   rect('#f0e3b2', COAST, ZMIN - 11, -110, -205); rect('#c4c4be', COAST, -611, 241, -411); rect('#55575c', -150, -557, 225, -533); rect('#cfcfca', -180, 195, -20, 400);
@@ -266,17 +267,74 @@ function drawBigMap() {
   bx.strokeStyle = '#1f8a8a'; bx.lineWidth = 2.5; bx.setLineDash([8, 6]); bx.strokeRect(X(RAIL.x0), Y(RAIL.z0), (RAIL.x1 - RAIL.x0) * s, (RAIL.z1 - RAIL.z0) * s); bx.setLineDash([]);
   bx.textAlign = 'center'; bx.textBaseline = 'middle';
   const label = (t, x, z, c) => { bx.font = '700 ' + Math.max(11, Math.round(15 * s)) + 'px system-ui,sans-serif'; bx.lineWidth = 3; bx.strokeStyle = 'rgba(255,255,255,.85)'; bx.strokeText(t, X(x), Y(z)); bx.fillStyle = c || '#2a2f3a'; bx.fillText(t, X(x), Y(z)); };
-  for (const m of markers) { if (m.indoor || m.type === 'goal') continue; disc('#' + m.mesh.material.color.getHexString(), m.x, m.z, Math.max(7, 6 / s) ); bx.fillStyle = '#fff'; bx.font = '700 ' + Math.max(9, Math.round(8 + 3 * s)) + 'px system-ui,sans-serif'; bx.fillText(m.icon || '', X(m.x), Y(m.z) + .5); }
-  for (const m of markers) if (m.type === 'goal') { disc('#35c46a', m.x, m.z, Math.max(10, 9 / s)); bx.fillStyle = '#fff'; bx.fillText('!', X(m.x), Y(m.z)); }
+  for (const m of markers) { if (m.indoor || m.type === 'goal' || m.car || !FILT[GROUP[m.type] || 'svc']) continue; const px = X(m.x), py = Y(m.z); if (px < -20 || py < -20 || px > W + 20 || py > H + 20) continue;
+    const r = Math.max(9, 7 + 2 * s); bx.fillStyle = '#fff'; bx.beginPath(); bx.arc(px, py, r + 2, 0, 7); bx.fill(); disc('#' + m.mesh.material.color.getHexString(), m.x, m.z, r / s); bx.fillStyle = '#fff'; bx.font = '800 ' + Math.round(r * 1.15) + 'px system-ui,sans-serif'; bx.fillText(m.icon || '', px, py + .5); }
+  for (const m of markers) if (m.type === 'goal') { bx.fillStyle = '#fff'; bx.beginPath(); bx.arc(X(m.x), Y(m.z), 14, 0, 7); bx.fill(); disc('#35c46a', m.x, m.z, 12 / s); bx.fillStyle = '#fff'; bx.font = '800 15px system-ui,sans-serif'; bx.fillText('!', X(m.x), Y(m.z)); }
+  if (G.gps) { const g = G.gps, pts = g.route || [[G.player.x, G.player.z], [g.x, g.z]]; bx.lineJoin = bx.lineCap = 'round'; bx.beginPath(); pts.forEach((q, i) => i ? bx.lineTo(X(q[0]), Y(q[1])) : bx.moveTo(X(q[0]), Y(q[1]))); bx.strokeStyle = '#fff'; bx.lineWidth = 9; bx.stroke(); bx.strokeStyle = '#2a7fff'; bx.lineWidth = 5; bx.stroke();
+    const gx = X(g.x), gy = Y(g.z); bx.fillStyle = '#2a7fff'; bx.strokeStyle = '#fff'; bx.lineWidth = 3; bx.beginPath(); bx.moveTo(gx, gy); bx.bezierCurveTo(gx - 15, gy - 16, gx - 13, gy - 36, gx, gy - 36); bx.bezierCurveTo(gx + 13, gy - 36, gx + 15, gy - 16, gx, gy); bx.fill(); bx.stroke(); bx.fillStyle = '#fff'; bx.beginPath(); bx.arc(gx, gy - 24, 4.5, 0, 7); bx.fill(); }
   for (const h of G.helis) { disc('#111', h.x, h.z, Math.max(7, 6 / s)); bx.fillStyle = '#fff'; bx.fillText(h.plane ? '✈' : 'X', X(h.x), Y(h.z)); }
-  label('OLD TOWN', 30, -98); label('HARBOUR', -60, 0, '#fff'); label('DOCKS', -100, 300); label('BEACH', -150, -300); label('VILLAS', -60, -228); label('DOWNTOWN', 150, -292); label('AIRPORT', 40, -585); label('OLD ARMY BASE', BASE.x, BASE.z - 30, '#5a3a1a'); label('Dirt road', 330, -195, '#5a3a1a'); label('LIGHTHOUSE', -330, 345); label('PRISON ISLAND', JAIL.x, JAIL.z + 5); label('PALM ISLAND', -400, -235); label('MONUMENT HILL', 372, 20); label('SOUTH END', 150, 360); label('EAST SIDE', 700, 80); label('NORTH QUARTER', 700, -560); label('TOWERS', 910, -300); label('INDUSTRY', 160, 600); label('SOUTH QUARTER', 800, 560); label('RING ROAD', 1000, -1005, '#8a6a10'); label('RING ROAD', 1000, 1005, '#8a6a10'); for (const t of TOWNS) label(t.name.toUpperCase(), t.x, t.z - 40, '#1f5f3a');
+  for (const a of AREAS) if (mv.k >= (a[3] || 0)) label(a[0], a[1], a[2], a[4]);
   const p = G.player, hx = p.car ? p.car.x : p.ride ? p.ride.x : p.x, hz = p.car ? p.car.z : p.ride ? p.ride.z : p.z; bx.save(); bx.translate(X(hx), Y(hz)); bx.rotate(-camYaw + Math.PI); bx.fillStyle = '#e02020'; bx.strokeStyle = '#fff'; bx.lineWidth = 2; bx.beginPath(); bx.moveTo(0, -13); bx.lineTo(9, 10); bx.lineTo(0, 5); bx.lineTo(-9, 10); bx.closePath(); bx.fill(); bx.stroke(); bx.restore();
-  bx.textAlign = 'left'; bx.font = '600 13px system-ui,sans-serif'; const lg = ['You = red arrow', 'G gun shop', 'F café', '+ hospital', 'P police / garage', 'H flat', 'J job', 'S respray', 'C scrapyard', 'B bomb shop', 'M monorail (dashed line)', 'A army crate', 'X helicopter, ✈ plane', '! job target'];
-  bx.fillStyle = 'rgba(10,14,24,.72)'; bx.fillRect(12, H - 22 * lg.length - 46, 220, 22 * lg.length + 34); bx.fillStyle = '#fff'; lg.forEach((t, i) => bx.fillText(t, 24, H - 22 * lg.length - 22 + i * 22)); bx.font = '700 15px system-ui,sans-serif'; bx.fillText(MOBILE ? 'Tap to close' : 'M or Esc to close', 24, H - 26);
 }
-function toggleMap(on) { if (!playing || (on && menuOpen)) return; mapOpen = on; bm.style.display = on ? 'block' : 'none'; if (on) drawBigMap(); }
-addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat) toggleMap(!mapOpen); else if (e.code === 'Escape' && mapOpen) toggleMap(false); });
-bm.addEventListener('click', () => toggleMap(false)); $('map').addEventListener('click', () => toggleMap(true));
+/* ----- map controls: search, filters, mission panel, GPS, zoom and drag ----- */
+const AREAS = [['OLD TOWN', 30, -98], ['HARBOUR', -60, 0, 0, '#fff'], ['DOCKS', -100, 300], ['BEACH', -150, -300], ['VILLAS', -60, -228], ['DOWNTOWN', 150, -292], ['AIRPORT', 40, -585], ['OLD ARMY BASE', BASE.x, BASE.z - 30, 0, '#5a3a1a'], ['Dirt road', 330, -195, 0, '#5a3a1a'], ['LIGHTHOUSE', -330, 345], ['PRISON ISLAND', JAIL.x, JAIL.z + 5], ['PALM ISLAND', -400, -235], ['MONUMENT HILL', 372, 20], ['SOUTH END', 150, 360], ['EAST SIDE', 700, 80], ['NORTH QUARTER', 700, -560], ['TOWERS', 910, -300], ['INDUSTRY', 160, 600], ['SOUTH QUARTER', 800, 560], ['RING ROAD', 1000, -1005, 0, '#8a6a10'], ['RING ROAD', 1000, 1005, 0, '#8a6a10'],
+  ['GANGSTER VILLA', VILLA.x, VILLA.z - 38, 0, '#7a2a2a'], ['PRESIDENT', RESIDENCE.x, RESIDENCE.z - 30, 0, '#1f3f8a'], ['MILITARY BASE', (ARMY.x0 + ARMY.x1) / 2, ARMY.z1 + 12, 0, '#3a4a1a'], ['THE SILO', SILO.x, SILO.z - 40, 1.4, '#6a5a1a'], ...TOWNS.map(t => [t.name.toUpperCase(), t.x, t.z - 40, 0, '#1f5f3a'])];
+const GROUP = { gun: 'shops', bomb: 'shops', cloth: 'shops', spray: 'shops', scrap: 'shops', bar: 'shops', food: 'shops', bank: 'shops', clinic: 'svc', desk: 'svc', garage: 'svc', flat: 'svc', rail: 'svc', silo: 'svc', job: 'jobs', goal: 'jobs', story: 'jobs', rampage: 'jobs', crate: 'loot' };
+const FILT = { shops: true, svc: true, jobs: true, loot: true };
+const CHIPS = [['shops', 'Shops  G B C S $ F'], ['svc', 'Services  + P H M'], ['jobs', 'Jobs  J !'], ['loot', 'Loot  A']];
+const dist2 = (x, z) => { const p = G.player; return Math.round(Math.hypot((p.car ? p.car.x : p.x) - x, (p.car ? p.car.z : p.z) - z)); };
+const mName = m => m.type === 'job' ? 'Job point' : m.type === 'rampage' ? 'Rampage' : String(m.text || m.type);
+let mTab = 'act';
+function goTo(x, z, name, zoom) { setGps(x, z, name); updateGps(0); mv.cx = x; mv.cz = z; mv.k = Math.max(mv.k, zoom || 2.2); drawBigMap(); mapUI(); }
+function mapPlaces(q) {
+  q = q.trim().toLowerCase(); if (!q) return []; const out = [];
+  for (const a of AREAS) if (a[0].toLowerCase().includes(q) && !out.some(o => o.name === a[0])) out.push({ name: a[0], x: a[1], z: a[2], icon: '#', color: '#4a5568' });
+  for (const m of markers) { if (m.indoor || m.car || m.type === 'crate') continue; const n = mName(m), hay = (n + ' ' + m.type + ' ' + (m.name || '')).toLowerCase(); if (hay.includes(q)) out.push({ name: n + (m.name ? ' ' + m.name : ''), x: m.x, z: m.z, icon: m.icon || '', color: '#' + m.mesh.material.color.getHexString() }); }
+  for (const o of out) o.d = dist2(o.x, o.z); out.sort((a, b) => a.d - b.d); return out.slice(0, 12);
+}
+const row = (icon, color, name, d, fn) => { const r = document.createElement('div'); r.className = 'mRow'; r.innerHTML = '<b style="background:' + color + '">' + icon + '</b><span></span><i>' + (d !== undefined ? (d >= 1000 ? (d / 1000).toFixed(1) + ' km' : d + ' m') : '') + '</i>'; r.children[1].textContent = name; r.onclick = fn; return r; };
+function mapUI() {
+  if (!mapOpen) return; const res = $('mRes'), list = $('mList'), q = $('mQ').value;
+  const put = (el, kids) => { const k = kids.map(e => e.textContent).join('|'); if (el._k !== k) { el._k = k; el.replaceChildren(...kids); } };   // only touch the page when the text changed, or a click can land on a row that was just replaced
+  put(res, mapPlaces(q).map(o => row(o.icon, o.color, o.name, o.d, () => { $('mQ').value = ''; goTo(o.x, o.z, o.name); })));
+  const info = missionInfo(), L = [], h = t => { const d = document.createElement('div'); d.className = 'mH'; d.textContent = t; return d; }, note = t => { const d = document.createElement('div'); d.style.cssText = 'opacity:.75;padding:4px'; d.textContent = t; return d; };
+  if (mTab === 'act') {
+    const goals = markers.filter(m => m.type === 'goal');
+    if (info.active) { L.push(h(info.active.name + (info.active.pay ? '  $' + info.active.pay : ''))); L.push(note(info.active.text || 'In progress')); }
+    for (const m of goals) L.push(row('!', '#35c46a', mName(m), dist2(m.x, m.z), () => goTo(m.x, m.z, mName(m), 1.6)));
+    if (!info.active && !goals.length) L.push(note('No mission running. Walk into a yellow J job point to pick one.'));
+  } else if (mTab === 'av') {
+    L.push(h('Job points')); const g = info.givers.map(o => Object.assign({ d: dist2(o.x, o.z) }, o)).sort((a, b) => a.d - b.d); for (const o of g) L.push(row('J', '#f2c21a', 'Job point', o.d, () => goTo(o.x, o.z, 'Job point')));
+    L.push(h('Jobs you can take')); for (const j of info.jobs) L.push(note(j.name + '  $' + j.pay + ' - ' + j.note));
+    const more = markers.filter(m => m.type === 'story' || m.type === 'rampage'); if (more.length) { L.push(h('Story and rampage')); for (const m of more) L.push(row(m.icon || '!', '#' + m.mesh.material.color.getHexString(), mName(m), dist2(m.x, m.z), () => goTo(m.x, m.z, mName(m)))); }
+  } else {
+    const d = Object.entries(info.done); if (G.inv.story) d.push(['Story missions', G.inv.story]);
+    if (!d.length) L.push(note('Nothing finished yet.')); for (const [n, c] of d) L.push(note('✔ ' + n + (c > 1 ? '  x' + c : '')));
+  }
+  put(list, L);
+  const gp = G.gps; $('mGps').style.display = gp ? 'block' : 'none'; if (gp) $('mGt').textContent = 'GPS: ' + gp.name + '  -  ' + (gp.len >= 1000 ? (gp.len / 1000).toFixed(1) + ' km' : Math.round(gp.len) + ' m');
+}
+function toggleMap(on) { if (!playing || (on && menuOpen)) return; mapOpen = on; bm.style.display = on ? 'block' : 'none'; $('mapui').style.display = on ? 'block' : 'none'; if (on) { const p = G.player; mv.cx = p.car ? p.car.x : p.x; mv.cz = p.car ? p.car.z : p.z; mv.k = 1; if (mv.cx < -480 || mv.cx > 1640 || G.inside) { mv.cx = 580; mv.cz = 0; } drawBigMap(); mapUI(); } else $('mQ').blur(); }
+addEventListener('keydown', e => { if (e.target && e.target.id === 'mQ') return; if (e.code === 'KeyM' && !e.repeat) toggleMap(!mapOpen); else if (e.code === 'Escape' && mapOpen) toggleMap(false); });
+$('mQ').addEventListener('keydown', e => { e.stopPropagation(); if (e.code === 'Escape') toggleMap(false); else if (e.code === 'Enter') { const r = mapPlaces($('mQ').value)[0]; if (r) { $('mQ').value = ''; goTo(r.x, r.z, r.name); } } });
+$('mQ').addEventListener('keyup', e => e.stopPropagation()); $('mQ').addEventListener('input', mapUI);
+$('mChips').replaceChildren(...CHIPS.map(([k, t]) => { const c = document.createElement('div'); c.className = 'chip on'; c.textContent = t; c.onclick = () => { FILT[k] = !FILT[k]; c.classList.toggle('on', FILT[k]); drawBigMap(); }; return c; }));
+document.querySelectorAll('#mTabs .chip').forEach(c => c.onclick = () => { mTab = c.dataset.t; document.querySelectorAll('#mTabs .chip').forEach(o => o.classList.toggle('on', o === c)); mapUI(); });
+$('mX').onclick = () => toggleMap(false); $('mGx').onclick = () => { setGps(null); drawBigMap(); mapUI(); };
+const zoomAt = (f, px, py) => { const w0 = [(px - mapW / 2) / mapS + mv.cx, (py - mapH / 2) / mapS + mv.cz], k = Math.min(12, Math.max(.6, mv.k * f)); mv.k = k; const s2 = Math.min(mapW / 2120, mapH / 2120) * k; mv.cx = w0[0] - (px - mapW / 2) / s2; mv.cz = w0[1] - (py - mapH / 2) / s2; drawBigMap(); };
+$('mIn').onclick = () => zoomAt(1.5, mapW / 2, mapH / 2); $('mOut').onclick = () => zoomAt(1 / 1.5, mapW / 2, mapH / 2); $('mMe').onclick = () => { const p = G.player; mv.cx = p.car ? p.car.x : p.x; mv.cz = p.car ? p.car.z : p.z; drawBigMap(); };
+bm.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.25 : .8, e.clientX, e.clientY); }, { passive: false });
+{ const ptr = new Map(); let moved = 0, pinch = 0;
+  bm.addEventListener('pointerdown', e => { bm.setPointerCapture(e.pointerId); ptr.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; pinch = 0; bm.style.cursor = 'grabbing'; });
+  bm.addEventListener('pointermove', e => { const q = ptr.get(e.pointerId); if (!q) return; const dx = e.clientX - q[0], dy = e.clientY - q[1]; ptr.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ptr.size === 2) { const [a, b] = [...ptr.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomAt(d / pinch, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); pinch = d; moved = 99; return; }
+    moved += Math.abs(dx) + Math.abs(dy); if (moved > 6) { mv.cx -= dx / mapS; mv.cz -= dy / mapS; drawBigMap(); } });
+  const up = e => { const had = ptr.delete(e.pointerId); bm.style.cursor = 'grab'; if (!had || moved > 6) return;   // a tap: set the GPS on the nearest place, or on the spot you touched
+    const wx = (e.clientX - mapW / 2) / mapS + mv.cx, wz = (e.clientY - mapH / 2) / mapS + mv.cz; let best = null, bd = (22 / mapS) ** 2;
+    for (const m of markers) { if (m.indoor || m.car && m.type !== 'goal' || !FILT[GROUP[m.type] || 'svc']) continue; const d = (m.x - wx) ** 2 + (m.z - wz) ** 2; if (d < bd) { bd = d; best = m; } }
+    if (best) goTo(best.x, best.z, mName(best), mv.k); else { setGps(wx, wz, 'Pin'); updateGps(0); drawBigMap(); mapUI(); } };
+  bm.addEventListener('pointerup', up); bm.addEventListener('pointercancel', e => { ptr.delete(e.pointerId); }); }
+$('map').addEventListener('click', () => toggleMap(true));
 const mm = $('map'), mc = mm.getContext('2d'), MS = 150; mm.width = mm.height = MS * 2; mc.scale(2, 2);
 function drawMap() {
   const p = G.player, s = .34, px = p.car ? p.car.x : p.x, pz = p.car ? p.car.z : p.z;
@@ -295,7 +353,9 @@ function drawMap() {
   for (const b of G.boats) { mc.fillStyle = '#1f5fa8'; mc.beginPath(); mc.arc(b.x * s, b.z * s, 3, 0, 7); mc.fill(); }
   for (const h of G.helis) { mc.fillStyle = '#111'; mc.beginPath(); mc.arc(h.x * s, h.z * s, 5.5, 0, 7); mc.fill(); mc.fillStyle = '#fff'; mc.fillText('X', h.x * s, h.z * s + .5); }
   for (const c of G.police) { mc.fillStyle = Math.floor(G.time * 4) % 2 ? '#2050ff' : '#ff2030'; mc.beginPath(); mc.arc(c.x * s, c.z * s, 3.2, 0, 7); mc.fill(); }
+  if (G.gps && G.gps.route) { mc.lineJoin = mc.lineCap = 'round'; mc.beginPath(); G.gps.route.forEach((q, i) => i ? mc.lineTo(q[0] * s, q[1] * s) : mc.moveTo(q[0] * s, q[1] * s)); mc.strokeStyle = '#fff'; mc.lineWidth = 5; mc.stroke(); mc.strokeStyle = '#2a7fff'; mc.lineWidth = 3; mc.stroke(); }
   mc.restore();
+  if (G.gps) { const dx = (G.gps.x - px) * s, dz = (G.gps.z - pz) * s, L = Math.hypot(dx, dz), R = MS / 2 - 9, k = L > R ? R / L : 1; const gx = MS / 2 + dx * k, gz = MS / 2 + dz * k; mc.fillStyle = '#2a7fff'; mc.beginPath(); mc.arc(gx, gz, 6.5, 0, 7); mc.fill(); mc.strokeStyle = '#fff'; mc.lineWidth = 1.5; mc.stroke(); mc.fillStyle = '#fff'; mc.fillText('>', gx, gz + .5); mc.fillStyle = 'rgba(10,14,24,.7)'; mc.fillRect(MS / 2 - 26, MS - 14, 52, 13); mc.fillStyle = '#fff'; mc.fillText(G.gps.len >= 1000 ? (G.gps.len / 1000).toFixed(1) + ' km' : Math.round(G.gps.len) + ' m', MS / 2, MS - 7.5); }
   for (const m of markers) if (m.type === 'goal') {   /* a job target outside the little map sits on its rim, so you always know which way to go */
     const dx = (m.x - px) * s, dz = (m.z - pz) * s, L = Math.hypot(dx, dz), R = MS / 2 - 9; if (L <= R) continue;
     const gx = MS / 2 + dx / L * R, gz = MS / 2 + dz / L * R; mc.fillStyle = '#35c46a'; mc.beginPath(); mc.arc(gx, gz, 6.5, 0, 7); mc.fill(); mc.strokeStyle = '#fff'; mc.lineWidth = 1.5; mc.stroke(); mc.fillStyle = '#fff'; mc.fillText('!', gx, gz + .5);
@@ -565,12 +625,12 @@ function sim(dt) {
   if (bustedT > 0) { bustedT -= dt; if (bustedT <= 0) finishBusted(); }
   else if (playing) { readInput(); if (menuOpen) { inp.mx = inp.my = 0; inp.run = inp.jump = inp.enter = inp.punch = false; } updatePlayer(dt); }
   G.camYaw = camYaw; G.camPitch = camPitch;
-  if (mapOpen) { mapT += dt; if (mapT > .4) { mapT = 0; drawBigMap(); } }
+  if (mapOpen) { mapT += dt; if (mapT > .4) { mapT = 0; drawBigMap(); mapUI(); } }
   // only the part of the city around the camera is drawn; the fog hides where it ends
   cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; }
   if (playing) { streamWorld(dt); areaTick(dt); }
   updateRoomLight();
-  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
+  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); updateGps(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
   updateCamera(dt);
   if (G.tipsy > G.time) { const k = Math.min(1, (G.tipsy - G.time) / 40); camera.rotateZ(Math.sin(G.time * 1.1) * .045 * k); camera.rotateY(Math.sin(G.time * .7) * .03 * k); }   /* a drink too many */
   G.skyUpdate(dt, G.hour, tgt, camera); if (!MOBILE || frameN % 2 === 0) G.seaUpdate(G.time); G.wheelUpdate(dt);

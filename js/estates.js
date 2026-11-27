@@ -6,7 +6,7 @@ import * as T from 'three';
 import { G, rr, rnd, landHeight, addBox, addCircle, solidAt, COAST } from './world.js';
 import { mergeStatic } from './merge.js';
 import { makeYacht, makeAttackHeli } from './craft.js';
-import { addCrate } from './shops.js';
+import { addCrate, addMarker } from './shops.js';
 import { clearLine, newCar } from './actors.js';
 
 const M = (c, o) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: .8 }, o || {}));
@@ -161,6 +161,37 @@ function buildArmy(scene) {
   [120, 128, 136, 144].forEach(x => park('jeep', x, -576, -Math.PI / 2, 0x4a5a2c)); [172, 182, 192, 202].forEach(x => park('army', x, -578, -Math.PI / 2));
   makeAttackHeli(30, -573, Math.PI / 2); makeAttackHeli(62, -573, Math.PI / 2);
 }
+
+/* ======================================================== 4. the abandoned missile silo ======================================================== */
+export const SILO = { x: 905, z: 1012 };
+function trefoil() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#d6b323'; x.fillRect(0, 0, 256, 256); x.fillStyle = '#111'; x.translate(128, 128);
+  for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, 100, -Math.PI / 6 - Math.PI / 2, Math.PI / 6 - Math.PI / 2); x.closePath(); x.fill(); x.rotate(Math.PI * 2 / 3); }
+  x.beginPath(); x.arc(0, 0, 18, 0, 7); x.fill(); const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t;
+}
+function buildSilo(scene) {
+  const g = new T.Group(); scene.add(g); const { x, z } = SILO, Y = .06;
+  const RUST = M(0x7a4a2a, { roughness: 1 }), STEEL = M(0x646b73, { roughness: .5, metalness: .5 }), CRACK = M(0x7d7f80, { roughness: 1 }), HAZ = M(0xe0b020);
+  // a cracked concrete pad with a tilted slab and weeds
+  blk(g, CRACK, x - 26, z - 26, x + 26, z + 26, 0, Y); blk(g, M(0x6f7173, { roughness: 1 }), x - 8, z - 24, x + 4, z - 10, Y, .05);
+  // the silo lid: a steel ring, two heavy doors slid half open, a hazard ring, the black hole between them
+  cyl(g, M(0x2a2c30), x, z, 7.4, Y, .35); cyl(g, STEEL, x, z, 6.2, Y + .35, .25); for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283, b = new T.Mesh(geoBox, i % 2 ? HAZ : mats.black); b.scale.set(1.1, .3, .5); b.position.set(x + Math.cos(a) * 6.9, Y + .5, z + Math.sin(a) * 6.9); b.rotation.y = -a; g.add(b); }
+  cyl(g, mats.black, x, z, 3.1, Y + .6, .02); blk(g, STEEL, x - 6, z - 6, x - .8, z + 6, Y + .6, .3); blk(g, STEEL, x + 3.8, z - 6, x + 6, z + 6, Y + .6, .3);   // the doors; the middle is open
+  addCircle(x, z, 7.3);
+  { const m = new T.Mesh(new T.PlaneGeometry(6, 6), new T.MeshStandardMaterial({ map: trefoil(), roughness: .8 })); m.rotation.x = -Math.PI / 2; m.position.set(x + 15, Y + .04, z + 14); g.add(m); }
+  // the way in: a concrete stair house at the edge of the pad
+  blk(g, mats.conc, x + 9, z + 6, x + 15, z + 12, Y, 3.2, true); blk(g, mats.black, x + 11, z + 11.9, x + 13, z + 12.1, Y, 2.2); blk(g, RUST, x + 8.6, z + 5.6, x + 15.4, z + 12.4, Y + 3.2, .3);
+  // a ruined guard hut, a vent stack, rusty barrels, a leaning fence ring with gaps, signs
+  blk(g, mats.stucco, x - 24, z + 16, x - 18, z + 21, Y, 2.6, true); blk(g, RUST, x - 24.4, z + 15.6, x - 17.6, z + 21.4, Y + 2.6, .2).rotation.z = .05; blk(g, mats.glass, x - 24.05, z + 17, x - 23.95, z + 19.5, 1.2, 1.1);
+  cyl(g, STEEL, x - 12, z - 18, 1.0, Y, 9); cyl(g, RUST, x - 12, z - 18, 1.25, Y + 9, .4); addCircle(x - 12, z - 18, 1.1);
+  for (const [bx, bz] of [[x + 18, z - 8], [x + 19.2, z - 7.4], [x + 17.6, z - 6.8], [x - 16, z + 10]]) { cyl(g, RUST, bx, bz, .45, Y, 1); addCircle(bx, bz, .5); }
+  for (let a = 0; a < 6.28; a += .16) { if ((a > .6 && a < 1.0) || (a > 3.4 && a < 3.9) || (a > 5.0 && a < 5.3)) continue; const fx = x + Math.cos(a) * 31, fz = z + Math.sin(a) * 31, h = 2 + (Math.sin(a * 9) > .6 ? -1.2 : 0); const m = new T.Mesh(geoBox, RUST); m.scale.set(.1, h, .1); m.position.set(fx, h / 2, fz); m.rotation.z = Math.sin(a * 5) * .12; g.add(m); if ((a * 100 | 0) % 2 === 0) { const wire = new T.Mesh(geoBox, mats.iron); wire.scale.set(5, .05, .05); wire.position.set(fx, h * .8, fz); wire.rotation.y = -a - 1.57; g.add(wire); } }
+  { const sc = document.createElement('canvas'); sc.width = 512; sc.height = 256; const q = sc.getContext('2d'); q.fillStyle = '#c92b2b'; q.fillRect(0, 0, 512, 256); q.fillStyle = '#fff'; q.font = 'bold 76px Arial'; q.textAlign = 'center'; q.fillText('DANGER', 256, 110); q.font = 'bold 40px Arial'; q.fillText('RESTRICTED AREA', 256, 170); q.fillText('KEEP OUT', 256, 220);
+    const t = new T.CanvasTexture(sc); t.colorSpace = T.SRGBColorSpace; for (const [px, pz, ry] of [[x + 31.4, z + 1, -Math.PI / 2], [x - 5, z + 31.4, 0]]) { cyl(g, RUST, px, pz, .06, 0, 2.4); const m = new T.Mesh(new T.PlaneGeometry(2, 1), new T.MeshBasicMaterial({ map: t })); m.position.set(px, 2.3, pz - .1 * Math.cos(ry)); m.rotation.y = ry + Math.PI; g.add(m); } }
+  for (const [tx, tz] of [[x - 38, z + 10], [x + 40, z - 22], [x + 36, z + 30]]) { cyl(g, mats.trunk, tx, tz, .18, 0, 2.4); const br = new T.Mesh(geoBox, mats.trunk); br.scale.set(1.6, .1, .1); br.position.set(tx + .6, 2.0, tz); br.rotation.z = .5; g.add(br); }   // dead trees
+  mergeStatic(g);
+  addMarker({ x: x + 12, z: z + 14.5, type: 'silo', icon: '☢', text: 'THE SILO', color: 0x8a7a3a, onEnter: m => G.enterRoom('silo', { x: m.x, z: m.z + 2.6 }) });
+}
 /* ======================================================== dogs ======================================================== */
 const dogs = [];
 const dogMat = M(0x2a2018, { roughness: .9 }), dogMat2 = M(0x6b5a44, { roughness: .9 });
@@ -209,7 +240,7 @@ export function updateDogs(dt) {
 }
 /* ======================================================== setup ======================================================== */
 export function setupEstates(scene) {
-  buildVilla(scene); buildResidence(scene); buildArmy(scene);
+  buildVilla(scene); buildResidence(scene); buildArmy(scene); buildSilo(scene);
   VILLA.yacht = makeYacht(VILLA.quay.x, VILLA.quay.z, -Math.PI / 2);
 }
 let dogsMade = false;

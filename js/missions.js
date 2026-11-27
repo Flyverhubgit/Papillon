@@ -18,7 +18,7 @@ function goal(x, z, text) { return addMarker({ x, z, car: true, type: 'goal', ic
 
 function end(win, why) {
   if (!M) return; const m = M; M = null; (m.marks || []).forEach(dropMarker); if (jobEl) jobEl.style.display = 'none';
-  if (win) { G.money += m.pay; G.onMoney(m.pay); if (m.story !== undefined) { G.inv.story = m.story + 1; if (G.banner) G.banner('MISSION PASSED', '#f2c21a'); G.say('Mission passed: ' + m.name + '  +$' + m.pay + (STORY[m.story + 1] ? '.  Marcel has more work for you.' : '.  That was the last of Marcel\'s jobs.'), 7); } else G.say('Job done: ' + m.name + '  +$' + m.pay, 5); saveGame(); if (G.sfx) G.sfx.cash(); }
+  if (win) { G.inv.done = G.inv.done || {}; G.inv.done[m.name] = (G.inv.done[m.name] || 0) + 1; G.money += m.pay; G.onMoney(m.pay); if (m.story !== undefined) { G.inv.story = m.story + 1; if (G.banner) G.banner('MISSION PASSED', '#f2c21a'); G.say('Mission passed: ' + m.name + '  +$' + m.pay + (STORY[m.story + 1] ? '.  Marcel has more work for you.' : '.  That was the last of Marcel\'s jobs.'), 7); } else G.say('Job done: ' + m.name + '  +$' + m.pay, 5); saveGame(); if (G.sfx) G.sfx.cash(); }
   else G.say((m.story !== undefined ? 'Mission failed: ' : 'Job failed: ') + (why || 'out of time') + (m.story !== undefined ? '. Go back to Marcel to try again.' : ''), 5);
 }
 G.failMission = why => end(false, why);
@@ -131,6 +131,11 @@ export function startParamedic() {
 function menu(g) {
   if (M) { G.menu('Jobs', 'You are on a job: ' + M.name, [{ label: 'Quit this job', fn: () => { end(false, 'you quit'); return true; } }]); return; }
   G.menu('Jobs', 'Pick one. The clock starts right away.', JOBS.filter(j => G.gang.length || !/gang/i.test(j.note || '')).map(j => ({ label: j.name + '  $' + j.pay, note: j.note, fn: () => { M = Object.assign(j.start(g), { name: j.name, pay: j.pay }); G.say(j.name + ': ' + j.note, 5); return true; } })));
+}
+// what the map's mission panel shows: the running job, the job points you can walk to, and what you have finished
+export function missionInfo() {
+  return { active: M ? { name: M.name, pay: M.pay, text: M.text ? M.text() : '', t: M.t, marks: (M.marks || []).map(k => ({ x: k.x, z: k.z, text: k.text })) } : null,
+    givers: GIVERS.map(g => ({ x: g.x, z: g.z })), jobs: JOBS.map(j => ({ name: j.name, pay: j.pay, note: j.note })), done: G.inv.done || {} };
 }
 export function setupMissions() {
   jobEl = document.getElementById('job');

@@ -421,7 +421,7 @@ export function newPerson(key, look) {
 function anim(p, name, once, ts) {
   if (p.cur === name) { if (ts) p.acts[name].timeScale = ts; return; }
   let a = p.acts[name]; if (!a) { if (!p.clips[name]) return; a = p.acts[name] = p.mixer.clipAction(p.clips[name]); }
-  a.reset(); a.timeScale = ts || 1; a.setLoop(once ? T.LoopOnce : T.LoopRepeat, Infinity); a.clampWhenFinished = !!once; a.fadeIn(.22).play();
+  a.reset(); a.timeScale = ts || 1; a.setLoop(once ? T.LoopOnce : T.LoopRepeat, Infinity); a.clampWhenFinished = !!once; if (!once && p.clips[name]) a.time = Math.random() * p.clips[name].duration; a.fadeIn(.22).play();   // looping clips start at a random point, so a crowd doesn't breathe in step
   if (p.cur && p.acts[p.cur]) p.acts[p.cur].fadeOut(.22);
   p.cur = name;
 }

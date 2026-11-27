@@ -210,6 +210,25 @@ export function setupInteriors(scene, menus) {
     ];
     G.rooms.flat = { title: 'Home', spawn: { x: cx - 1.2, z: cz + 1.2 }, markers: mk };
   }
+  /* ----- the old missile silo: a hide-out under the desert ----- */
+  {
+    const cx = 3000, cz = 600, w = 13, d = 9, g = room(scene, cx, cz, w, d, 0x5d6268, 0x34373b);
+    const steel = M(0x7b838c, { roughness: .35, metalness: .5 }), rust = M(0x7a4a2a, { roughness: .9 }), dark = M(0x1c1e22), green = M(0x35563a), screen = M(0x7fffb0, { emissive: 0x3fe08a, emissiveIntensity: 1.4 }), amber = M(0xffb020, { emissive: 0xff9a10, emissiveIntensity: 1.1 }), olive = M(0x4a5a2c), canvas = M(0x6b6a52);
+    box(g, 2.0, .4, 3.0, steel, -w / 2 + 1.3, .2, -d / 2 + 1.9, true); box(g, 1.9, .2, 2.9, canvas, -w / 2 + 1.3, .5, -d / 2 + 1.9); box(g, 1.2, .16, .6, M(0xe8e4d6), -w / 2 + 1.3, .66, -d / 2 + .7); box(g, 1.9, .16, 1.9, olive, -w / 2 + 1.3, .64, -d / 2 + 2.3);   // a steel bunk with an army blanket
+    box(g, 4.4, .9, .9, steel, 1.6, .45, -d / 2 + .7, true); box(g, 4.5, .06, 1.0, dark, 1.6, .92, -d / 2 + .7); for (const x of [-.2, 1.5, 3.2]) { box(g, 1.2, .8, .06, dark, 1.6 + (x - 1.5), 1.55, -d / 2 + .12); box(g, 1.1, .7, .02, screen, 1.6 + (x - 1.5), 1.55, -d / 2 + .16); }   // the control desk and three glowing screens
+    box(g, .5, .08, .5, amber, 4.4, 1.0, -d / 2 + .7);
+    for (let i = 0; i < 3; i++) { box(g, 1.3, 2.2, .5, green, w / 2 - 1.0 - i * 1.4, 1.1, d / 2 - .4, true); box(g, .05, 1.8, .02, dark, w / 2 - 1.0 - i * 1.4, 1.1, d / 2 - .66); }   // lockers along the south wall
+    box(g, 2.6, .5, .9, rust, -1.8, .25, d / 2 - 1.0, true); for (let i = 0; i < 3; i++) box(g, .8, .5, .6, olive, -2.6 + i * .8, .75, d / 2 - 1.0);   // crates
+    for (const b of [[w / 2 - .7, 0], [w / 2 - .7, 1.0]]) { const dr = new T.Mesh(new T.CylinderGeometry(.34, .34, .95, 12), rust); dr.position.set(b[0], .48, b[1]); g.add(dr); }
+    box(g, 3.4, .02, 2.4, M(0x6b3b2a), 0, .012, .4);   // a worn rug
+    box(g, 2.2, 1.5, .05, M(0x2d4a3a), -w / 2 + .05, 1.7, 1.2).rotation.y = Math.PI / 2;   // a map on the wall
+    const mk = [
+      addMarker({ x: cx - w / 2 + 2.9, z: cz - d / 2 + 2.3, type: 'in', icon: '', text: 'SLEEP AND SAVE', color: 0x3a9a5a, indoor: true, onEnter: menus.bed }),
+      addMarker({ x: cx + w / 2 - 2.0, z: cz + d / 2 - 1.5, type: 'in', icon: '', text: 'WARDROBE', color: 0x7a4fa8, indoor: true, onEnter: menus.wardrobe }),
+      addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'CLIMB OUT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })
+    ];
+    G.rooms.silo = { title: 'The silo: your hide-out', spawn: { x: cx, z: cz + 2.2 }, markers: mk };
+  }
 }
 function text(t, bg, fg) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d');
