@@ -174,8 +174,8 @@ function unb64b(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i
 // the FBX loader prints one warning for every vertex with too many bone weights (thousands per character): that floods the console and makes the game stutter. Drop that one message while loading.
 function quietParse(fn) { const w = console.warn; console.warn = (...a) => { if (typeof a[0] === 'string' && a[0].indexOf('skinning weights') >= 0) return; w.apply(console, a); }; try { return fn(); } finally { console.warn = w; } }
 // which people the game uses: the original figures (default) or the realistic ones; the choice is kept in the browser and changed in the Statistics menu
-export function peopleStyle() { try { return localStorage.getItem('papillon.people') === 'real' ? 'real' : 'classic'; } catch (e) { return 'classic'; } }
-export function togglePeople() { try { localStorage.setItem('papillon.people', peopleStyle() === 'real' ? 'classic' : 'real'); } catch (e) { } }
+export function peopleStyle() { try { return localStorage.getItem('papillon.people2') === 'real' ? 'real' : 'classic'; } catch (e) { return 'classic'; } }   // new key: an old saved 'real' choice no longer counts, so everyone starts on the classic figures
+export function togglePeople() { try { localStorage.setItem('papillon.people2', peopleStyle() === 'real' ? 'classic' : 'real'); } catch (e) { } }
 function buildXP(xp, gunGeo, gunMat) {
   if (!xp || peopleStyle() !== 'real') return;
   const mgr = new T.LoadingManager(), clipsOf = {}; mgr.setURLModifier(() => PIXEL);
