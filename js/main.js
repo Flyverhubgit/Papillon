@@ -632,7 +632,7 @@ let builderOpen = false;
 const bEl = $('builder'), nice = n => /^x[mf]\d+$/.test(n) ? 'Person' : n.replace(/_(Head|Body|Legs|Pants|Feet)$/, '').replace('Formad', 'Formal').replace(/(\d)/, ' $1');
 function refreshBuilder() {
   const L = G.look, o = lookOptions(L.sex);
-  if (G.PT && G.PT.xm0) bEl.querySelectorAll('.brow').forEach(r => { if (!r.querySelector('.seg') && r.dataset.cat !== 'head') r.style.display = 'none'; else if (r.dataset.cat === 'head') r.querySelector('span').textContent = 'Person'; });
+  if (G.PT && G.PT.xm0) bEl.querySelectorAll('.brow').forEach(r => { if (!r.querySelector('.seg') && r.dataset.cat !== 'head') { const sw = r.querySelector('.sw'); r.style.display = sw && (sw.dataset.k === 'top' || sw.dataset.k === 'bottom') ? '' : 'none'; } else if (r.dataset.cat === 'head') r.querySelector('span').textContent = 'Person'; });
   bEl.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.sex === L.sex));
   bEl.querySelectorAll('.brow[data-cat]').forEach(r => { const c = r.dataset.cat, i = o[c].indexOf(L[c]); r.querySelector('b').textContent = nice(L[c]) + '  (' + (i + 1) + '/' + o[c].length + ')'; });
   bEl.querySelectorAll('.sw').forEach(sw => { const k = sw.dataset.k; sw.querySelectorAll('i').forEach(i => i.classList.toggle('on', (i.dataset.v === 'null' ? null : +i.dataset.v) === L[k])); });
