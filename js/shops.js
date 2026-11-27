@@ -195,6 +195,7 @@ function crate(m) {
   if (m.ready > G.time) { G.say('Empty. Come back in ' + Math.ceil((m.ready - G.time) / 60) + ' min.', 2); return; }
   m.ready = G.time + 360; const got = LOOT[m.kind][1](); G.onWeapon(); G.say('You found ' + got, 4); if (G.sfx) G.sfx.cash(); saveGame();
 }
+export function addCrate(x, z, y, kind) { return addMarker({ x, z, y, type: 'crate', icon: 'A', kind, ready: 0, text: LOOT[kind][0], color: 0x6a7a3a, onEnter: crate }); }
 // the bank: tell the teller it is a robbery, then empty the vault while the alarm rings
 export function bankMenu() {
   if (G.heist) { G.say('"Please, just take it! The vault is open!"', 3); return; }

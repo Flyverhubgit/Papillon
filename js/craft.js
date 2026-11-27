@@ -77,12 +77,12 @@ export function swimBlocked(x, z) {
 }
 export function driveBoat(b, thr, steer, dt) {
   let fx = Math.cos(b.h), fz = -Math.sin(b.h), vf = b.vx * fx + b.vz * fz, vl = -b.vx * fz + b.vz * fx;
-  vf += (thr > 0 ? (b.row ? 3.2 : b.sail ? 4.5 : 9) : (b.row ? 2 : b.sail ? 2 : 5)) * thr * dt; vf -= vf * .45 * dt; vf = clamp(vf, b.row ? -2 : b.sail ? -3 : -6, b.row ? 5.4 : 26);   // a rowing canoe is slow vl *= Math.exp(-2.2 * dt);   // a sailing boat is slower and gentler than a motor boat
+  vf += (thr > 0 ? (b.row ? 3.2 : b.sail ? 4.5 : b.big ? 5 : 9) : (b.row ? 2 : b.sail ? 2 : b.big ? 3 : 5)) * thr * dt; vf -= vf * .45 * dt; vf = clamp(vf, b.row ? -2 : b.sail ? -3 : -6, b.row ? 5.4 : b.big ? 17 : 26);   // a rowing canoe is slow vl *= Math.exp(-2.2 * dt);   // a sailing boat is slower and gentler than a motor boat
   if (b.sail && b.sailG) { b.swing = (b.swing || 0) + ((steer * .55 + (thr > 0 ? .35 : .12) * (b.tack || 1)) - (b.swing || 0)) * Math.min(1, dt * 1.8); if (Math.abs(steer) > .3) b.tack = Math.sign(steer); b.sailG.rotation.y = b.swing; }   // the boom swings out, and over to the other side when you turn
-  const turn = steer * (b.sail ? 1.0 : 1.5) * Math.min(1, Math.abs(vf) / 3) * (vf < 0 ? -1 : 1); b.h -= turn * dt; b.roll += ((b.sail ? -(b.swing || 0) * .3 * Math.min(1, Math.abs(vf) / 5) : -steer * Math.min(1, Math.abs(vf) / 10) * .35) - b.roll) * Math.min(1, dt * 4);
+  const turn = steer * (b.sail ? 1.0 : b.big ? .7 : 1.5) * Math.min(1, Math.abs(vf) / 3) * (vf < 0 ? -1 : 1); b.h -= turn * dt; b.roll += ((b.sail ? -(b.swing || 0) * .3 * Math.min(1, Math.abs(vf) / 5) : -steer * Math.min(1, Math.abs(vf) / 10) * .35) - b.roll) * Math.min(1, dt * 4);
   fx = Math.cos(b.h); fz = -Math.sin(b.h); b.vx = fx * vf - fz * vl; b.vz = fz * vf + fx * vl;
   const nx = b.x + b.vx * dt, nz = b.z + b.vz * dt;
-  const free = (x, z) => !boatBlocked(x + fx * 2.6, z + fz * 2.6) && !boatBlocked(x - fx * 2.6, z - fz * 2.6);
+  const ln = b.len || 2.6, free = (x, z) => !boatBlocked(x + fx * ln, z + fz * ln) && !boatBlocked(x - fx * ln, z - fz * ln);
   if (!free(nx, nz) && b === G.player.ride) { const hit = Math.hypot(b.vx, b.vz); if (hit > 6.5 && !(b.hitCd > G.time)) { b.hitCd = G.time + .5; b.hp -= (hit - 5) * 2.2; if (G.sfx) G.sfx.crash(hit); if (G.shake) G.shake(Math.min(1, hit * .06)); } }   // running into a quay or the shore dents it like a car
   if (free(nx, nz)) { b.x = nx; b.z = nz; }
   else if (free(nx, b.z)) { b.x = nx; b.vz *= -.2; }
@@ -94,7 +94,7 @@ export function driveBoat(b, thr, steer, dt) {
 export function boatLanding(b) {
   if (b.x > HARB.x0 && b.x < HARB.x1) { if (b.z < HARB.z0 + 7) return { x: b.x, z: HARB.z0 - 2 }; if (b.z > HARB.z1 - 7) return { x: b.x, z: HARB.z1 + 2 }; }
   if (b.x > HARB.x1 - 9 && Math.abs(b.z) < HARB.z1) return { x: HARB.x1 + 2, z: b.z };
-  if (b.x < COAST && b.x > COAST - 7 && Math.abs(b.z) > 90) return { x: COAST + 2.5, z: b.z };
+  if (b.x < COAST && b.x > COAST - (b.big ? 15 : 7) && Math.abs(b.z) > 90) return { x: COAST + 2.5, z: b.z };
   return null;
 }
 
@@ -111,6 +111,15 @@ function newHeli(x, z, h) {
   const tail = new T.Group(); tail.position.set(-4.6, 2.25, .12); tail.add(box(1.5, .2, .03, blk), box(.2, 1.5, .03, blk)); g.add(tail);
   const hl = { g, rotor, tail, x, z, y: 0, h, vx: 0, vy: 0, vz: 0, v: 0, spin: 0, heli: true, pitch: 0, roll: 0 };
   G.scene.add(g); G.helis.push(hl); placeHeli(hl); return hl;
+}
+// the army's attack helicopter: olive paint, stub wings with rocket pods, a nose gun. The hit button fires rockets (see updateRide in main.js)
+export function makeAttackHeli(x, z, h) {
+  const hl = newHeli(x, z, h), olive = M(0x4a5a2c, { roughness: .6 }), dk = M(0x2a3320, { roughness: .6 });
+  hl.g.traverse(o => { if (o.isMesh && o.material && o.material.color) { const k = o.material.color.getHex(); if (k === 0xf2f2ee) o.material = olive; else if (k === 0x1f3f8a) o.material = dk; } });
+  hl.g.add(box(.7, .1, 3.8, olive, .3, .85, 0));
+  for (const s of [-1, 1]) { const pod = new T.Mesh(new T.CylinderGeometry(.2, .2, 1.3, 8), dk); pod.rotation.z = Math.PI / 2; pod.position.set(.55, .8, s * 1.75); pod.castShadow = true; hl.g.add(pod); const tip = new T.Mesh(new T.ConeGeometry(.2, .3, 8), olive); tip.rotation.z = -Math.PI / 2; tip.position.set(1.35, .8, s * 1.75); hl.g.add(tip); }
+  hl.g.add(box(1.0, .12, .12, dk, 2.2, .75, 0));
+  hl.attack = true; return hl;
 }
 // a small propeller plane. It lives in the same list as the helicopter so getting in, the camera and the map all just work
 function newPlane(x, z, h) {
@@ -134,14 +143,14 @@ function flyPlane(pl, thr, steer, up, dt, on) {
   pl.s -= pl.s * (air ? .05 : (on && thr > 0 ? .05 : .9)) * dt; if (!on && air) pl.s -= 3 * dt;
   pl.s = clamp(pl.s, 0, 58);
   pl.h -= steer * (air ? .85 : 1.1 * Math.min(1, pl.s / 8)) * dt;
-  if (on && air && (pl.x < -1085 || pl.x > 2960 || Math.abs(pl.z) > 1070)) {   // the edge of the world: the plane banks back towards the city by itself
+  if (on && air && (pl.x < -1085 || pl.x > 1600 || Math.abs(pl.z) > 1070)) {   // the edge of the world: the plane banks back towards the city by itself
     let dh = Math.atan2(pl.z, -pl.x) - pl.h; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
     pl.h += clamp(dh, -1, 1) * Math.min(1, dt * 1.6); if (!(G.edgeT > G.time) && G.say) { G.edgeT = G.time + 5; G.say('End of the map - turning back', 3); }
   }
   const fx = Math.cos(pl.h), fz = -Math.sin(pl.h);
   if (air) { const want = pl.s < 22 ? -9 : up > 0 ? up * 26 : up * 15; pl.vy += (want - pl.vy) * Math.min(1, dt * 2.4); }   // climbs about 25 degrees: the tallest tower is 142 m, so it can be cleared from 60 m away
   else if (pl.s > 26 && up > 0) pl.vy = 3; else pl.vy = 0;
-  let nx = clamp(pl.x + fx * pl.s * dt, -1100, 2980), nz = clamp(pl.z + fz * pl.s * dt, -1090, 1090);
+  let nx = clamp(pl.x + fx * pl.s * dt, -1100, 1620), nz = clamp(pl.z + fz * pl.s * dt, -1090, 1090);
   const nf = heliFloor(nx, nz);
   if (nf > pl.y + .8) { if (on && pl.s > 12) { G.hurt(Math.min(90, pl.s * 2)); if (G.sfx) G.sfx.crash(20); G.say('Crash!', 2); } pl.s = 0; pl.vy = Math.min(pl.vy, 0); }
   else { pl.x = nx; pl.z = nz; }
@@ -159,7 +168,7 @@ export function heliFloor(x, z) { if (inWater(x, z) && landHeight(x, z) < .2) re
 export function flyHeli(hl, thr, steer, up, dt, on) {
   if (hl.dead) {   // shot down: the engine is out, it spins and falls
     hl.spin += (0 - hl.spin) * Math.min(1, dt * .8); if (hl.rotor) { hl.rotor.rotation.y += hl.spin * 26 * dt; hl.h += 2.4 * dt; } if (hl.prop) hl.prop.rotation.x += hl.spin * 18 * dt;
-    hl.vy -= 11 * dt; hl.vx -= hl.vx * .3 * dt; hl.vz -= hl.vz * .3 * dt; const nx = clamp(hl.x + hl.vx * dt, -1100, 2980), nz = clamp(hl.z + hl.vz * dt, -1090, 1090);
+    hl.vy -= 11 * dt; hl.vx -= hl.vx * .3 * dt; hl.vz -= hl.vz * .3 * dt; const nx = clamp(hl.x + hl.vx * dt, -1100, 1620), nz = clamp(hl.z + hl.vz * dt, -1090, 1090);
     if (heliFloor(nx, nz) > hl.y + .8) { hl.vx = hl.vz = 0; } else { hl.x = nx; hl.z = nz; }
     hl.y += hl.vy * dt; hl.pitch += (.25 - hl.pitch) * Math.min(1, dt * 2); hl.roll += (.3 - hl.roll) * Math.min(1, dt * 2); hl.air = true; hl.v = Math.hypot(hl.vx, hl.vy, hl.vz); placeHeli(hl); return;
   }
@@ -174,7 +183,7 @@ export function flyHeli(hl, thr, steer, up, dt, on) {
   const drag = air ? .55 : 6; hl.vx -= hl.vx * drag * dt; hl.vz -= hl.vz * drag * dt;
   const sp = Math.hypot(hl.vx, hl.vz); if (sp > 36) { hl.vx *= 36 / sp; hl.vz *= 36 / sp; }
   let nx = hl.x + hl.vx * dt, nz = hl.z + hl.vz * dt;
-  nx = clamp(nx, -1100, 2980); nz = clamp(nz, -1090, 1090);
+  nx = clamp(nx, -1100, 1620); nz = clamp(nz, -1090, 1090);
   const nf = heliFloorWide(nx, nz);
   if (nf > hl.y + .8) { hl.vx *= -.35; hl.vz *= -.35; } else { hl.x = nx; hl.z = nz; }   // a wall, a roof edge or a hillside in the way of any part of it: it bounces back
   hl.y += hl.vy * dt; if (hl.y > 320) { hl.y = 320; hl.vy = 0; }
@@ -367,5 +376,29 @@ export function makeCanoe(x, z, h) {
   for (const s2 of [-1, 1]) { const oar = new T.Mesh(new T.CylinderGeometry(.025, .025, 1.7, 6), wood); oar.rotation.x = Math.PI / 2; oar.rotation.z = .25 * s2; oar.position.set(-.1, .42, s2 * .75); g.add(oar); const bl = new T.Mesh(new T.BoxGeometry(.4, .03, .14), wood); bl.position.set(-.1, .36, s2 * 1.5); g.add(bl); }
   const b = { g, x, z, h, vx: 0, vz: 0, v: 0, boat: true, row: true, roll: 0, seat: { x: -.1, y: .02, z: 0 }, hp: 100, burnT: 0, home: { x, z, h } };
   G.scene.add(g); G.boats.push(b); placeBoat(b); return b;
+}
+
+// The gangster's super yacht: 28 m, white, three decks. Slow to turn, but it goes. Forward is +x.
+export function makeYacht(x, z, h) {
+  const g = new T.Group(), SX = 14, SZ = 7.8, put = (geo, mat, y, hgt, sx = 1, sz = 1) => { const m = new T.Mesh(geo, mat); m.scale.set(SX * sx, hgt, SZ * sz); m.position.y = y; m.castShadow = true; g.add(m); return m; };
+  const white = M(0xf6f6f2, { roughness: .3 }), navy = M(0x15233d, { roughness: .4 }), red = M(0x6e1f1a, { roughness: .6 }), teak = M(0xa77b4a, { roughness: .7 }), glass = M(0x1b2a40, { roughness: .08, metalness: .3 }), steel = M(0xcfd5db, { roughness: .25, metalness: .6 }), dark = M(0x23262c);
+  put(keelGeo, red, -2.2, 1.25, .97); put(hullGeo, white, -1.0, 2.5); put(hullGeo, navy, .15, .16, 1.004, 1.012); put(hullGeo, teak, 1.5, .1, .97, .95);
+  const B = (w, hh, d, mat, px, py, pz) => g.add(box(w, hh, d, mat, px, py, pz));
+  B(15, 2.2, 6.1, white, -4.2, 2.65, 0); B(15.2, .15, 6.3, white, -4.2, 3.78, 0);                                       // the main cabin and its roof
+  for (const s of [-1, 1]) { B(11.5, .9, .08, glass, -3.6, 2.9, s * 3.07); B(.08, .9, 4.6, glass, 3.3, 2.9, 0); }          // the windows
+  B(10, 1.9, 5.0, white, -5.2, 4.8, 0); B(10.2, .14, 5.2, white, -5.2, 5.82, 0);                                         // the upper deck
+  for (const s of [-1, 1]) B(8, .8, .08, glass, -5.0, 5.0, s * 2.53); B(.08, .8, 3.8, glass, -.1, 5.0, 0);
+  B(5.4, 1.6, 3.8, white, -4.2, 6.7, 0); B(5.6, .12, 4.0, white, -4.2, 7.55, 0); B(.08, .8, 3.0, glass, -1.45, 6.8, 0);   // the bridge on top
+  for (const s of [-1, 1]) B(4.0, .7, .08, glass, -4.2, 6.8, s * 1.93);
+  B(.14, 2.6, .14, steel, -5.0, 8.9, 0); B(1.4, .08, .08, steel, -5.0, 9.7, 0); B(.06, 1.6, .06, steel, -4.3, 8.4, .6);   // the mast and the aerials
+  const radar = new T.Mesh(new T.SphereGeometry(.45, 10, 8), white); radar.position.set(-3.2, 8.15, 0); radar.castShadow = true; g.add(radar);
+  B(2.2, 1.1, 1.8, dark, -8.6, 4.4, 0);                                                                                // the funnel
+  B(4.2, .12, 5.4, teak, -11.2, 3.9, 0); for (const s of [-1, 1]) for (let k = 0; k < 3; k++) B(1.7, .22, .6, white, -11.6 + k * 1.0, 4.07, s * 1.6);   // the sun deck at the back, with loungers
+  B(2.2, .5, 6.3, teak, -13.4, 1.2, 0);                                                                                // the swim platform
+  B(4.8, 1.0, 1.5, white, -9.7, 4.3, 3.3).visible = true;                                                              // a tender on the side deck
+  for (const s of [-1, 1]) { const rail = box(26, .06, .06, steel, 0, 2.3, s * 3.55); rail.scale.x = .9; g.add(rail); for (let px = -11; px <= 11; px += 2.2) g.add(box(.05, .9, .05, steel, px, 1.9, s * 3.55)); }   // the deck rails
+  B(.9, .5, .9, steel, 10.6, 1.9, 0); B(.2, .2, 2.2, steel, 10.6, 2.35, 0);                                          // the anchor winch
+  const b = { g, x, z, h, vx: 0, vz: 0, v: 0, boat: true, big: true, len: 11, roll: 0, seat: { x: -4.3, y: 6.5, z: 0 }, hp: 400, burnT: 0, home: { x, z, h } };
+  mergeStatic(g); G.scene.add(g); G.boats.push(b); placeBoat(b); return b;
 }
 export { placeBoat };

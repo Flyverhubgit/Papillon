@@ -71,6 +71,7 @@ import { updateFx, updateBreaks } from './fx.js';
 import { updateDemolish, updateWater, updateBrigade, updateBlastFx } from './demolish.js';
 import { updateExtras } from './extras.js';
 import { startNet, updateNet } from './net.js';
+import { setupEstates, updateEstates } from './estates.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -328,7 +329,8 @@ function updateRide(dt) {
   const p = G.player, r = p.ride; if (inp.enter) { inp.enter = false; leaveRide(); if (!p.ride) return; }
   if (r.train) { p.y = 0; }   // the monorail drives itself
   else if (r.boat) { driveBoat(r, inp.my, inp.mx, dt); placeBoat(r); p.y = 0; }
-  else { const up = (inp.jump ? 1 : 0) - ((keys.ShiftLeft || keys.ShiftRight || keys.KeyC || tb.down) ? 1 : 0); flyHeli(r, inp.my, inp.mx, up, dt, true); p.y = r.y; }
+  else { const up = (inp.jump ? 1 : 0) - ((keys.ShiftLeft || keys.ShiftRight || keys.KeyC || tb.down) ? 1 : 0); flyHeli(r, inp.my, inp.mx, up, dt, true); p.y = r.y;
+    if (r.attack && inp.punch && !(r.shotCd > G.time)) { r.shotCd = G.time + .45; const cx = Math.cos(r.h), cz = -Math.sin(r.h), sd = (r.salvo = !r.salvo) ? 1.75 : -1.75; fireRocket(r.x + cx * 2 - cz * sd, r.z + cz * 2 + cx * sd, cx, cz, r.y + .8, -.1, false); if (G.sfx) G.sfx.shot(); } }
   if (r.boat && inp.punch && G.driveBy) G.driveBy();   /* a click in a boat: shoot, as from a car */
   p.x = r.x; p.z = r.z; p.speed = r.v; inp.punch = false;
 }
@@ -568,7 +570,7 @@ function sim(dt) {
   cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; }
   if (playing) { streamWorld(dt); areaTick(dt); }
   updateRoomLight();
-  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
+  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
   updateCamera(dt);
   if (G.tipsy > G.time) { const k = Math.min(1, (G.tipsy - G.time) / 40); camera.rotateZ(Math.sin(G.time * 1.1) * .045 * k); camera.rotateY(Math.sin(G.time * .7) * .03 * k); }   /* a drink too many */
   G.skyUpdate(dt, G.hour, tgt, camera); if (!MOBILE || frameN % 2 === 0) G.seaUpdate(G.time); G.wheelUpdate(dt);
@@ -606,11 +608,11 @@ async function boot() {
   });
   G.enterRoom = enterRoom; G.setCam = (y, pt) => { camYaw = y; camPitch = pt; };
   G.openBuilder = openBuilder; setupInteriors(scene, { gun: gunMenu, bed: bedMenu, wardrobe: openBuilder, food: foodMenu, clinic: clinicMenu, desk: deskMenu, armoury: armouryMenu, bar: barMenu, cloth: clothMenu });
-  setupGangs(MOBILE ? 5 : 9);   // the Iron Wolves, always armed, in the old army base
+  setupGangs(MOBILE ? 5 : 9, MOBILE);   // the Iron Wolves, always armed, in the old army base
   if (saved) { $('play').textContent = 'Continue'; $('look').textContent = 'Change your look'; $('wipe').style.display = 'inline'; }
   makeTraffic(MOBILE ? 12 : 48, MOBILE ? 20 : 70); makePeds(MOBILE ? 18 : 100);
   { const t = newCar('tank'); t.x = -140; t.z = 357.5; t.h = 0; t.g.position.set(t.x, 0, t.z); G.dockTank = t; }   // an army tank left in the docks, yours if you find it
-  setupEscape(); setupLair(scene);   // Victor, the old bridge and the hide-out under it (before the physics, so its walls are solid there too)
+  setupEscape(); setupLair(scene); setupEstates(scene);   // Victor, the old bridge and the hide-out under it (before the physics, so its walls are solid there too)
   status.textContent = 'Starting the physics'; await initPhysics(); setupJobs(scene);
   { let q = null; try { q = localStorage.getItem('papillon.quality'); let old = localStorage.getItem('papillon.fancy'); if (!q && old === '0') q = 'med'; } catch (e) { } applyQuality(QUAL[q] ? q : MOBILE ? 'med' : 'high', false); }
   status.textContent = 'Preparing the graphics'; await new Promise(r => setTimeout(r, 30));
@@ -669,4 +671,4 @@ boot().catch(e => { console.error(e); $('status').textContent = 'Something went 
 renderer.info.autoReset = false; G.camera = camera; G.renderer = renderer; initCarEnv(renderer); G.isFancy = () => fancy && !!composer;
 G.takeCar = takeCar;
 G.debug = { get playing() { return playing; }, setCam(y, p) { camYaw = y; camPitch = p; }, aim(v) { aimHeld = v; }, step(n, dt) { for (let i = 0; i < n; i++) sim(dt || 1 / 60); }, keys, inp };
-G.THREE = T; G.roofPushDBG = roofPush; G.solidHeightDBG = solidHeight; window.PAP = G; G.HARBDBG = HARB; G.inWaterDBG = inWater; G.markersDBG = markers; G.RAILDBG = RAIL; G.knockPed = knockPed; G.shootDBG = shoot; G.staggerDBG = staggerPed; G.dentDBG = dentCar;
+G.THREE = T; G.roofPushDBG = roofPush; G.solidHeightDBG = solidHeight; window.PAP = G; G.landHDBG = landHeight; G.solidAtDBG = solidAt; G.boatBlockedDBG = boatBlocked; G.HARBDBG = HARB; G.inWaterDBG = inWater; G.markersDBG = markers; G.RAILDBG = RAIL; G.knockPed = knockPed; G.shootDBG = shoot; G.staggerDBG = staggerPed; G.dentDBG = dentCar;
