@@ -608,8 +608,8 @@ function pedGoto(p, tx, tz, dt, sp) { const dx = tx - p.x, dz = tz - p.z, d = Ma
 export function knockPed(p, vx, vz) {
   if (p.state === 'down' || p.state === 'inside' || p.state === 'driving') return false;
   const sp = Math.hypot(vx, vz); p.state = 'down'; p.t = rr(4, 7); if (p.target && p.target.car) p.target.car.reserved = null;
-  if (sp > 5) {   // a hard hit (a car, a blast): thrown through the air, tumbling, with blood. Very hard and they do not get up again
-    p.kx = vx * .75; p.kz = vz * .75; p.fy = .05; p.fvy = Math.min(8.5, 1.5 + sp * .38); p.spin = 0; p.spinV = rr(4, 9) * (rnd() < .5 ? -1 : 1);
+  if (sp > 3) {   // a hard hit (a car, a blast): thrown through the air, tumbling, with blood. Very hard and they do not get up again
+    p.kx = vx * 1.0; p.kz = vz * 1.0; p.fy = .05; p.fvy = Math.min(11, 2.5 + sp * .5); p.spin = 0; p.spinV = rr(4, 9) * (rnd() < .5 ? -1 : 1);
     if (G.physDoll && p.h.visible) G.physDoll(p, p.x, p.gy || 0, p.z, p.kx * 1.1, p.fvy * .8, p.kz * 1.1, p.yaw);   // real physics: the body tumbles, bounces off cars and walls
     if (G.blood) G.blood(p.x, 1, p.z, sp > 11 ? 10 : 5, vx, vz); if (sp > 7) { p.dead = true; p.t = 16; if (G.stat) G.stat('kills'); }
   } else { p.kx = vx * .35; p.kz = vz * .35; }
