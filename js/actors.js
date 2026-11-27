@@ -794,7 +794,8 @@ export function updatePeds(dt) {
       case 'down': {
         moving = false; p.t -= dt;
         if (p.doll) {   // a tumbling body: the physics says where it is
-          if (G.physDollPose(p, p.h, p)) { G.physUndoll(p); p.fy = 0; p.kx = p.kz = 0; p.h.rotation.set(0, p.yaw, 0); if (G.blood) G.blood(p.x, .3, p.z, 3); }
+          if (G.physDollPose(p, p.h, p)) { G.physUndoll(p); p.fy = 0; p.kx = p.kz = 0; p.h.rotation.set(0, p.yaw, 0); p.lieNow = true;   // the body has come to rest: it must lie there, not stand up and fall again
+           if (G.blood) G.blood(p.x, .3, p.z, 3); }
           else p.fy = Math.max(.01, p.dy);
         } else
         { const nx = p.x + p.kx * dt, nz = p.z + p.kz * dt; if (solidAt(nx, nz, .3)) { p.kx *= -.2; p.kz *= -.2; } else { p.x = nx; p.z = nz; } }   // a wall stops them
@@ -823,7 +824,7 @@ export function updatePeds(dt) {
     p.gy = (p.gy || 0) + (kerbH(p.x, p.z) - (p.gy || 0)) * Math.min(1, dt * 9);   // up on the kerb, down on the road
     if (!p.doll) { p.h.position.set(p.x, p.fy > 0 ? p.fy : p.gy, p.z); p.h.rotation.y = p.yaw; p.h.rotation.x = p.fy > 0 ? p.spin : 0; }
     if (d2 < 75 * 75) {
-      if (p.doll) anim(p, 'Idle'); else if (p.state === 'down') anim(p, 'Death', true, 1.2); else if (stag) anim(p, 'Hit_Head', true, 1); else if (p.state === 'fight' && p.swing > 0) anim(p, 'Punch_Right', true, 1.5); else if (p.state === 'chat') anim(p, 'Talk'); else if (p.state === 'sit') anim(p, 'Sit'); else if (!moving) anim(p, 'Idle'); else if (sp > 3) anim(p, 'Run', false, clamp(sp / 2.9, .8, 1.5)); else anim(p, 'Walk', false, clamp(sp / 1.05, .85, 1.3));
+      if (p.doll) anim(p, 'Idle'); else if (p.state === 'down') { anim(p, 'Death', true, 1.2); if (p.lieNow && p.acts.Death) { const a = p.acts.Death; a.time = a.getClip().duration; a.weight = 1; p.mixer.update(.3); p.lieNow = false; } } else if (stag) anim(p, 'Hit_Head', true, 1); else if (p.state === 'fight' && p.swing > 0) anim(p, 'Punch_Right', true, 1.5); else if (p.state === 'chat') anim(p, 'Talk'); else if (p.state === 'sit') anim(p, 'Sit'); else if (!moving) anim(p, 'Idle'); else if (sp > 3) anim(p, 'Run', false, clamp(sp / 2.9, .8, 1.5)); else anim(p, 'Walk', false, clamp(sp / 1.05, .85, 1.3));
       if (d2 < 35 * 35 || p.doll || (p.sk = (p.sk || 0) + 1) % 3 === 0) p.mixer.update(d2 < 35 * 35 || p.doll ? dt : dt * 3);   // far people move at a third of the rate: nobody sees it
       if (p.doll) limp(p, dt); else if (p.limp) unlimp(p);
     }
@@ -1103,7 +1104,7 @@ function freeOcc(c) { if (!c.occ) return; for (const n of c.occ) { if (n.real) {
 // show or hide the driver (and now and then a passenger) of a car
 function syncOcc(c) {
   const ge = GEO[c.type]; if (!ge || !ge.seat) return;
-  const pl = G.player, mine = pl.car === c, drive = !c.dead && (!!c.ai || (c.chase && !c.cop) || (mine && !pl.passenger)), pass = !c.dead && ((mine && pl.passenger) || (drive && c.hasPass));
+  const pl = G.player, mine = pl.car === c, drive = !c.dead && (!!c.ai || (c.chase && !c.cop) || (mine && !pl.passenger)), pass = !c.dead && ((mine && pl.passenger) || (!mine && drive && c.hasPass));
   const near = mine || ((c.x - pl.x) ** 2 + (c.z - pl.z) ** 2 < 2500);
   if (c.occ && (!near || c.dead)) { freeOcc(c); if (!near) return; }   // far away nobody needs to be drawn
   if (!drive && !pass && !c.occ) return; if (!near) return;
