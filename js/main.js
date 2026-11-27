@@ -105,7 +105,7 @@ function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h
 addEventListener('resize', resize); resize();
 
 /* ----- graphics quality: Low / Medium / High (F6, or the Statistics menu). It sets the shadows, the fine graphics, the sharpness, and how far away things are drawn ----- */
-const QUAL = { low: { pr: 1, shadow: 0, view: .5, fancy: false, ped: 50, car: 110, nat: 170, natS: 0 }, med: { pr: 1.25, shadow: 2048, view: .8, fancy: false, ped: 90, car: 200, nat: 280, natS: 70 }, high: { pr: 2, shadow: 2048, view: 1, fancy: true, ped: 100, car: 260, nat: 380, natS: 120 } };
+const QUAL = { low: { pr: MOBILE ? .75 : 1, shadow: 0, view: .5, fancy: false, ped: 50, car: 110, nat: 170, natS: 0 }, med: { pr: 1.25, shadow: 2048, view: .8, fancy: false, ped: 90, car: 200, nat: 280, natS: 70 }, high: { pr: 2, shadow: 2048, view: 1, fancy: true, ped: 100, car: 260, nat: 380, natS: 120 } };
 const QORDER = ['low', 'med', 'high'], QNAME = { low: 'Low', med: 'Medium', high: 'High' };
 G.Q = Object.assign({}, QUAL.high);
 function applyQuality(q, save) {
