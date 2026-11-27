@@ -68,6 +68,7 @@ import { setupEscape, updateEscape } from './escape.js';
 import { updateCops, clearCops } from './cops.js';
 import { setupMissions, updateMissions, startTaxiShift, startParamedic, missionInfo } from './missions.js';
 import { setGps, updateGps } from './gps.js';
+import { updateNature } from './nature.js';
 import { updateFx, updateBreaks } from './fx.js';
 import { updateDemolish, updateWater, updateBrigade, updateBlastFx } from './demolish.js';
 import { updateExtras } from './extras.js';
@@ -630,7 +631,7 @@ function sim(dt) {
   cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; }
   if (playing) { streamWorld(dt); areaTick(dt); }
   updateRoomLight();
-  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); updateGps(dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
+  updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); updateGps(dt); updateNature(G.player.x, G.player.z, dt); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);
   updateCamera(dt);
   if (G.tipsy > G.time) { const k = Math.min(1, (G.tipsy - G.time) / 40); camera.rotateZ(Math.sin(G.time * 1.1) * .045 * k); camera.rotateY(Math.sin(G.time * .7) * .03 * k); }   /* a drink too many */
   G.skyUpdate(dt, G.hour, tgt, camera); if (!MOBILE || frameN % 2 === 0) G.seaUpdate(G.time); G.wheelUpdate(dt);
@@ -731,4 +732,4 @@ boot().catch(e => { console.error(e); $('status').textContent = 'Something went 
 renderer.info.autoReset = false; G.camera = camera; G.renderer = renderer; initCarEnv(renderer); G.isFancy = () => fancy && !!composer;
 G.takeCar = takeCar;
 G.debug = { get playing() { return playing; }, setCam(y, p) { camYaw = y; camPitch = p; }, aim(v) { aimHeld = v; }, step(n, dt) { for (let i = 0; i < n; i++) sim(dt || 1 / 60); }, keys, inp };
-G.THREE = T; G.roofPushDBG = roofPush; G.solidHeightDBG = solidHeight; window.PAP = G; G.landHDBG = landHeight; G.solidAtDBG = solidAt; G.boatBlockedDBG = boatBlocked; G.HARBDBG = HARB; G.inWaterDBG = inWater; G.markersDBG = markers; G.RAILDBG = RAIL; G.knockPed = knockPed; G.shootDBG = shoot; G.staggerDBG = staggerPed; G.dentDBG = dentCar;
+G.THREE = T; G.roofPushDBG = roofPush; G.solidHeightDBG = solidHeight; window.PAP = G; G.landHDBG = landHeight; G.zoneDBG = zoneAt; G.solidAtDBG = solidAt; G.boatBlockedDBG = boatBlocked; G.HARBDBG = HARB; G.inWaterDBG = inWater; G.markersDBG = markers; G.RAILDBG = RAIL; G.knockPed = knockPed; G.shootDBG = shoot; G.staggerDBG = staggerPed; G.dentDBG = dentCar;

@@ -19,7 +19,7 @@ async function loadGLB(name) {
 }
 export async function loadModels(onProgress) {
   // phones skip the detailed downtown kit buildings (d1-d3 and their textures) to stay light
-  const names = ['pm', 'pw', 'b1', 'b2', 'b3', 'b4', 'b5'].concat(MOBILE ? [] : ['d1', 'd2', 'd3']), data = ['am', 'aw', 'guns', 'cars', 'psx'].concat(peopleStyle() === 'real' ? ['xp'] : peopleStyle() === 'new' ? ['ub'] : []).concat(MOBILE ? [] : ['dtex']), out = {}, tot = names.length + data.length; let n = 0;
+  const names = ['pm', 'pw', 'b1', 'b2', 'b3', 'b4', 'b5', 'nat'].concat(MOBILE ? [] : ['d1', 'd2', 'd3']), data = ['am', 'aw', 'guns', 'cars', 'psx'].concat(peopleStyle() === 'real' ? ['xp'] : peopleStyle() === 'new' ? ['ub'] : []).concat(MOBILE ? [] : ['dtex']), out = {}, tot = names.length + data.length; let n = 0;
   await Promise.all(names.map(async nm => { const g = await loadGLB(nm); out[nm] = g.scene; out[nm + '_anim'] = g.animations; onProgress(++n / tot); })
     .concat(data.map(async nm => { out[nm] = (await import('../models/' + nm + '.js')).default; onProgress(++n / tot); })));
   CM = out.cars; PX = out.psx;

@@ -1,5 +1,6 @@
 // Papillon - world: layout, city generation, sea, sky, day and night
 import * as T from 'three';
+import { natAdd, scatter, buildNature, setDensity } from './nature.js';
 
 export const MOBILE = matchMedia('(pointer:coarse)').matches;
 export const G = {}; G.cells = []; G.targets = [];   // targets: other things that can be shot, punched or run into (prison guards, police boats): { x, z, y, top, r, car, alive(), hit(dmg, dx, dz) }                       // shared game state
@@ -577,8 +578,11 @@ const gIco = new T.IcosahedronGeometry(1, 1), gCone4 = new T.ConeGeometry(1, 1, 
 const LEAF = [0x4f8f3a, 0x5fa244, 0x417a33, 0x6bab4d].map(col), PALMC = [0x3f8f4a, 0x4a9a50, 0x357a40].map(col), TRUNK = col(0x6a5540), PTRUNK = col(0x8a7558);
 // a pool of lamp light: bright in the middle, fading to nothing at the rim (it is added to the street, so black means no light)
 const glowGeo = (() => { const g = new T.CircleGeometry(1, 28).rotateX(-Math.PI / 2).toNonIndexed(), P = g.attributes.position, col = new Float32Array(P.count * 3); for (let i = 0; i < P.count; i++) { const r = Math.hypot(P.getX(i), P.getZ(i)), k = Math.pow(Math.max(0, 1 - r), 1.2); col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k; } g.setAttribute('color', new T.BufferAttribute(col, 3)); return g; })();
+let NATOK = false;
 function tree(x, z, sc) {
-  sc = sc || 1; SB.setT(x, 0, z, 0);
+  sc = sc || 1;
+  if (NATOK) { const q = hash2(x * 1.7, z * 2.3); natAdd(q < .4 ? 'CommonTree_1' : q < .75 ? 'CommonTree_4' : q < .9 ? 'Pine_1' : 'TwistedTree_1', x, z, sc * (.85 + q * .3), q * 40); return; }   // the real trees (nature.js) stand in for these blobs
+  SB.setT(x, 0, z, 0);
   SB.geo(TRUNK, gCyl(.16, .24, 3.2, 6), M4(0, 1.6, 0));
   for (let i = 0; i < 4; i++) SB.geo(pick(LEAF), gIco, M4((rnd() - .5) * 1.8 * sc, 3.7 + rnd() * 1.7, (rnd() - .5) * 1.8 * sc, rnd() * 3, (1.1 + rnd() * .7) * sc), MAT.leaf);
   addCircle(x, z, .3);
@@ -864,7 +868,7 @@ function makeSigns(scene) {
 
 /* ---------- build everything ---------- */
 export function buildWorld(scene, models) {
-  prepModels(models);
+  prepModels(models); NATOK = !!models.nat; setDensity(MOBILE ? .5 : 1);
   // land
   FB.setT(0, 0, 0, 0);
   const LX1 = 241, LZ = 21 - ZMIN, LZS = ZMAX + 21;
@@ -921,6 +925,7 @@ export function buildWorld(scene, models) {
   rockHill(scene, -330, 330, 60, 13, 2.7, 0x8a9a5e, true); lighthouse(-330, 330);
   rockHill(scene, -400, -250, 75, 16, 6.3, 0x93a060, true);
   for (let i = 0; i < 9; i++) { const a = i * 2.4, d = 14 + (i % 3) * 9, x = -400 + Math.cos(a) * d, z = -250 + Math.sin(a) * d, y = landHeight(x, z); if (y > 1) palm(x, z, 5 + (i % 3), y - .4); }
+  if (NATOK) { scatter(-425, -275, -375, -225, 77, 'park'); }
   { const y = landHeight(-400, -250); SB.setT(-400, y - .3, -250, .6); SB.box(WOOD, 5, 2.6, 4, 0, 1.3, 0); SB.box(TILE, 5.8, .3, 4.8, 0, 2.75, 0); SB.box(DARK, 1, 1.9, .1, 0, .95, 2.03); }
   armyBase(scene);
   jail(scene);
@@ -929,6 +934,7 @@ export function buildWorld(scene, models) {
   makeSigns(scene);
   finishKit(scene);
   SB.build(scene); FB.build(scene); PB.build(scene);
+  if (NATOK) buildNature(scene, models.nat, (x, z) => landHeight(x, z), addCircle);
 }
 
 function lighthouse(x, z) {
@@ -1151,6 +1157,7 @@ function bigCityBlock(i, j, X0, X1, Z0, Z1) {
     FB.setT(0, 0, 0, 0); FB.box(col([0xcdbb6a, 0x86a55a, 0x9aa060, 0xb7b27a][Math.floor(h * 4)]), X1 - X0 - 2 * RH - 1, .05, Z1 - Z0 - 2 * RH - 1, cx, .025, cz);
     if (h > .45) for (let k = 1; k < 6; k++) FB.box(col(0xa89a52), w - 6, .06, 1.4, cx, .03, z0 + d * k / 6);   // crop rows
     for (let k = 0; k < 6; k++) if (hash2(cx + k * 7, cz - k * 5) < .6) tree(x0 + 4 + hash2(cx, k) * (w - 8), z0 + 4 + hash2(k, cz) * (d - 8), .9 + hash2(k, cz) * .5);
+    if (NATOK) scatter(x0 + 2, z0 + 2, x1 - 2, z1 - 2, cx * 7 + cz * 13, 'country', (px, pz) => h < .3 && Math.abs(px - cx - 1) < 22 && Math.abs(pz - cz) < 14);   // woods, bushes, grass, flowers and rocks
     SB.setT(0, 0, 0, 0); if (h > .3 && h < .7) { hedgeBox(w, 1, .5, cx, .5, S ? z1 : z0); }   // a hedge along the road
     if (h < .3) { bldg(cx - 6, cz, 11, 8, 4.2, pick(WALLS), S ? 's' : N ? 'n' : E ? 'e' : 'w', TILE); SB.setT(cx + 9, 0, cz + 2, 0); SB.box(col(0x8a3a2e), 9, 5, 12, 0, 2.5, 0); SB.box(DARK, 9.6, .4, 12.6, 0, 5.2, 0); addBox(cx + 4.5, cz - 4, cx + 13.5, cz + 8, 5); }
     return;
@@ -1162,7 +1169,7 @@ function bigCityBlock(i, j, X0, X1, Z0, Z1) {
   const fz = S ? 's' : N ? 'n' : E ? 'e' : 'w', fn = N ? 'n' : S ? 's' : W ? 'w' : 'e';
   if (!KINDS[kind]) KINDS[kind] = [X0, Z0, X1, Z1];   /* one example of each kind of block, for the test pictures */
   if (kind === 'towers') { tower(x0 + w * .26, cz, w * .42, d * .72, 40 + h * 70, pick(TOWER)); tower(x1 - w * .26, cz, w * .42, d * .72, 30 + hash2(cz, cx) * 60, pick(TOWER)); }
-  else if (kind === 'park') { FB.box(GRASSC, w, .14, d, cx, .07, cz); for (let k = 0; k < 9; k++) tree(x0 + 3 + hash2(cx, k * 3) * (w - 6), z0 + 3 + hash2(k * 5, cz) * (d - 6), 1.1); bench(cx, cz, 0); bench(cx + 6, cz + 5, Math.PI / 2); }
+  else if (kind === 'park') { FB.box(GRASSC, w, .14, d, cx, .07, cz); if (NATOK) scatter(x0 + 3, z0 + 3, x1 - 3, z1 - 3, cx * 3 + cz, 'park', (px, pz) => Math.abs(px - cx) < 5 && Math.abs(pz - cz) < 8); for (let k = 0; k < 9; k++) tree(x0 + 3 + hash2(cx, k * 3) * (w - 6), z0 + 3 + hash2(k * 5, cz) * (d - 6), 1.1); bench(cx, cz, 0); bench(cx + 6, cz + 5, Math.PI / 2); }
   else if (kind === 'pitch') {   // a football pitch with a fence, and a clubhouse
     const FENCE = col(0x5c6670), LINE = col(0xf2f2ee), pw = Math.min(w - 16, 44), pd = Math.min(d - 6, 30), px = cx + 5;
     FB.box(col(0x4f9a4a), pw, .14, pd, px, .07, cz); FB.box(LINE, .3, .16, pd, px, .08, cz); FB.box(LINE, pw, .16, .3, px, .08, cz - pd / 2 + .3); FB.box(LINE, pw, .16, .3, px, .08, cz + pd / 2 - .3); FB.box(LINE, .3, .16, pd, px - pw / 2 + .3, .08, cz); FB.box(LINE, .3, .16, pd, px + pw / 2 - .3, .08, cz);
@@ -1198,6 +1205,7 @@ function bigCityBlock(i, j, X0, X1, Z0, Z1) {
     for (let k = 0; k < 3; k++) { const hx = x0 + w * (k + .5) / 3;
       bldg(hx, z0 + 4.2, 9.5, 7.4, hash2(hx, z0) < .5 ? 3.4 : 6.5, pick(WALLS), fn === 'n' || fn === 's' ? 'n' : fn, TILE); bldg(hx, z1 - 4.2, 9.5, 7.4, hash2(hx, z1) < .5 ? 3.4 : 6.5, pick(WALLS), fz === 's' || fz === 'n' ? 's' : fz, TILE);
       if (k < 2) tree(x0 + w * (k + 1) / 3, cz + (k ? 3 : -3), 1); }
+    if (NATOK) scatter(x0 + 2, z0 + 11, x1 - 2, z1 - 11, cx * 5 + cz * 3, 'garden', (px, pz) => Math.abs(pz - cz) < 2);   // trees, shrubs and flowers in the gardens between the house rows
     SB.setT(0, 0, 0, 0); hedgeBox(w - 2, 1.1, .5, cx, .55, cz);
   } else {   // apartment blocks, four to a block
     const bw = (w - 5) / 2, bd = (d - 5) / 2;
