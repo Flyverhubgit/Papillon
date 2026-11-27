@@ -134,7 +134,7 @@ function flyPlane(pl, thr, steer, up, dt, on) {
   pl.s -= pl.s * (air ? .05 : (on && thr > 0 ? .05 : .9)) * dt; if (!on && air) pl.s -= 3 * dt;
   pl.s = clamp(pl.s, 0, 58);
   pl.h -= steer * (air ? .85 : 1.1 * Math.min(1, pl.s / 8)) * dt;
-  if (on && air && (pl.x < -1030 || pl.x > 830 || Math.abs(pl.z) > 830)) {   // the edge of the world: the plane banks back towards the city by itself
+  if (on && air && (pl.x < -1085 || pl.x > 885 || Math.abs(pl.z) > 885)) {   // the edge of the world: the plane banks back towards the city by itself
     let dh = Math.atan2(pl.z, -pl.x) - pl.h; while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
     pl.h += clamp(dh, -1, 1) * Math.min(1, dt * 1.6); if (!(G.edgeT > G.time) && G.say) { G.edgeT = G.time + 5; G.say('End of the map - turning back', 3); }
   }
