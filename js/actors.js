@@ -191,7 +191,7 @@ function buildXP(xp, gunGeo, gunMat) {
   };
   const done = [];
   for (const sex of ['m', 'f']) {
-    const list = MOBILE ? xp[sex].slice(0, 5) : xp[sex];
+    const list = MOBILE && !NEW ? xp[sex].slice(0, 5) : xp[sex];
     list.forEach((e, i) => { const r = mk(e, sex, 'x' + sex + i); XP[sex].push(r); done.push(r); });
   }
   (xp.c || []).forEach((e, i) => { const r = mk(e, e.s, 'xc' + i); XP.c.push(r); done.push(r); });
@@ -253,7 +253,7 @@ const UBSHOE = [0xf0f0f0, 0x151517, 0x5a3a22, 0x8a8a90];
 function ubSpecs(ub) {
   let seed = 12345; const r = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }, pk = a => a[Math.floor(r() * a.length)];   // own random numbers: the city's own sequence is left alone
   const out = { m: [], f: [], c: [] };
-  for (const sex of ['m', 'f']) for (let i = 0; i < (MOBILE ? 8 : 16); i++) out[sex].push({ ub, sex, skin: r() < .3 ? 1 : 0, shirt: pk(UBSHIRT), pants: pk(UBPANTS), shoe: pk(UBSHOE), hairC: pk(UBHAIR), hair: sex === 'm' ? pk(['Hair_SimpleParted', 'Hair_SimpleParted', 'Hair_Buzzed', 'Hair_Buzzed']) : pk(['Hair_Long', 'Hair_Buns', 'Hair_BuzzedFemale']), beard: sex === 'm' && r() < .3 });
+  for (const sex of ['m', 'f']) for (let i = 0; i < (MOBILE ? 12 : 28); i++) out[sex].push({ ub, sex, skin: r() < .3 ? 1 : 0, shirt: pk(UBSHIRT), pants: pk(UBPANTS), shoe: pk(UBSHOE), hairC: pk(UBHAIR), hair: sex === 'm' ? pk(['Hair_SimpleParted', 'Hair_SimpleParted', 'Hair_Buzzed', 'Hair_Buzzed']) : pk(['Hair_Long', 'Hair_Buns', 'Hair_BuzzedFemale']), beard: sex === 'm' && r() < .3 });
   for (let i = 0; i < 4; i++) { const sex = i % 2 ? 'f' : 'm'; out.c.push({ ub, sex, s: sex, skin: r() < .3 ? 1 : 0, shirt: 0x1f2d4a, pants: 0x161d2e, shoe: 0x151517, hairC: pk(UBHAIR.slice(0, 3)), hair: sex === 'm' ? 'Hair_Buzzed' : 'Hair_BuzzedFemale', beard: false, cop: true }); }
   return out;
 }
@@ -381,7 +381,8 @@ export function newPerson(key, look) {
   const t = PT[key], m = SkeletonUtils.clone(t.scene), keep = {}, mats = {};
   if (key === 'pw') shapeWoman(m);
   if (t.x) {
-    m.scale.multiplyScalar(t.k); m.position.y = t.y * t.k; const h = new T.Group(); h.add(m); G.scene.add(h);
+    const fh = t.ub ? rr(.93, 1.07) : 1, fw = t.ub ? rr(.94, 1.09) : 1;   // nobody is quite the same height and build as the next person
+    m.scale.set(t.k * fw, t.k * fh, t.k * fw); m.position.y = t.y * t.k * fh; const h = new T.Group(); h.add(m); G.scene.add(h);
     if (tint != null && t.ub) { const sp = t.ub, mat = ubBake(sp.ub, sp.sex, sp.skin, tint >= 0 ? tint : sp.shirt, look && look.bottom != null ? look.bottom : sp.pants, sp.shoe); m.traverse(o => { if (o.isSkinnedMesh && /^MI_Superhero/.test(o.name) === false && o.material === t.mat) o.material = mat; }); }   // a gang or prison top: the shirt is painted in that colour
     else if (tint != null && tint >= 0) { const mat = t.mat.clone(); mat.color.set(0xffffff).lerp(new T.Color(tint), .55); m.traverse(o => { if (o.isMesh) o.material = mat; }); }
     const guns = {}; m.traverse(o => { if (o.name.startsWith('gun_')) guns[o.name.slice(4)] = o; });
