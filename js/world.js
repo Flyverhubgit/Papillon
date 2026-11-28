@@ -334,7 +334,7 @@ DEMO_DEPTH.customProgramCacheKey = () => 'demo-depth';
 for (const k of ['matte', 'glass', 'lit', 'mark', 'bulb', 'gold', 'glow']) addDemo(MAT[k]);
 
 /* ---------- batcher: merges thousands of pieces into a few meshes ---------- */
-const CELL = 150;
+const CELL = 100;
 const KEEPGEO = typeof location !== 'undefined' && /keepgeo/.test(location.search);   // testing only: keep the drawn shapes in memory so the ground can be measured
 function freeArray() { if (!KEEPGEO) this.array = null; }
 const UB = new T.BoxGeometry(1, 1, 1).toNonIndexed(), UP = UB.attributes.position.array, UNr = UB.attributes.normal.array;

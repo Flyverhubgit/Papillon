@@ -628,7 +628,11 @@ function sim(dt) {
   G.camYaw = camYaw; G.camPitch = camPitch;
   if (mapOpen) { mapT += dt; if (mapT > .4) { mapT = 0; drawBigMap(); mapUI(); } }
   // only the part of the city around the camera is drawn; the fog hides where it ends
-  cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; }
+  cullT -= dt; if (cullT <= 0) { cullT = .3; const cx = camera.position.x, cz = camera.position.z, hi = Math.max(0, camera.position.y - 60) * 2; for (const c of G.cells) c.m.visible = Math.hypot(c.x - cx, c.z - cz) - c.r < (c.v || VIEW) + hi; 
+    // only people and cars near you cast shadows: far ones are outside the shadow area anyway, and each one costs several draw calls
+    { const SR = (MOBILE ? 38 : 52) * 1.2, px = G.player.x, pz = G.player.z, setC = (root, on) => { if (root.userData.shOn === on) return; root.userData.shOn = on; root.traverse(o => { if (o.isMesh) o.castShadow = on; }); };
+      for (const q of G.peds) setC(q.h, (q.x - px) ** 2 + (q.z - pz) ** 2 < SR * SR);
+      for (const c of G.cars) setC(c.g, (c.x - px) ** 2 + (c.z - pz) ** 2 < (SR + 6) * (SR + 6)); } }
   if (playing) { streamWorld(dt); areaTick(dt); }
   updateRoomLight();
   updateFx(dt); updateBreaks(dt); updateDemolish(dt); updateWater(dt); updateBrigade(dt); updateBlastFx(dt); updateLights(); updateExtras(dt); if (playing) updateNet(dt); updateEstates(dt); updateGps(dt); updateNature(G.player.x, G.player.z, dt, G.Q.nat, G.Q.natS); if (playing) updateMore(dt, camera); updateCars(dt); updatePhysics(dt); if (playing) { updateJobs(dt); updateLair(dt); updateEscape(dt); } { const p = G.player, c = p.car; if (c && c.phys && !p.passenger) { p.x = c.x; p.z = c.z; p.y = c.py || 0; p.speed = c.v; } } updatePeds(dt); updateCraft(dt); updateNPCs(dt); updatePuffs(dt); updateGangs(dt); updateCops(dt); updateTrain(dt); if (playing) { updatePolice(dt); updateCash(dt); updateMarkers(dt); updateMissions(dt); updateTracers(dt); saveT += dt; if (saveT > 20) { saveT = 0; saveGame(); } } animPlayer(dt);

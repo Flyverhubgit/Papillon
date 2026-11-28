@@ -118,6 +118,18 @@ function placeSign(o, g) {
   }
   g.position.set(o.x + .9, y0 + 3, o.z); bar(g, .14, 3 - h / 2, .14, 0, -(3 + h / 2) / 2, 0, woodMat);   // no wall near: a board on a post beside the spot
 }
+// every door you can walk into gets a bright, open, glass doorway so it is easy to spot (day and night)
+const doorGlass = new T.MeshBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: .88, side: T.DoubleSide }), doorGlow = new T.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: .32, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
+function openDoor(o) {
+  const D = [[0, 1], [0, -1], [1, 0], [-1, 0]]; let wall = null, wt = 3.7;
+  for (const [dx, dz] of D) for (let t = .2; t < wt; t += .1) if (solidAt(o.x + dx * t, o.z + dz * t, .05)) { wt = t; wall = [dx, dz]; break; }
+  if (!wall) return; const [dx, dz] = wall, y0 = o.y || 0, g = new T.Group();
+  const pane = new T.Mesh(new T.PlaneGeometry(1.7, 2.3), doorGlass); pane.position.y = 1.2; g.add(pane);
+  bar(g, .08, 2.4, .05, -.88, 1.2, 0, ironMat); bar(g, .08, 2.4, .05, .88, 1.2, 0, ironMat); bar(g, 1.84, .08, .05, 0, 2.4, 0, ironMat); bar(g, .05, 2.3, .04, 0, 1.2, 0, ironMat);   // frame and the mullion between two doors
+  const glow = new T.Mesh(new T.CircleGeometry(1.5, 20), doorGlow); glow.rotation.x = -Math.PI / 2; glow.position.set(-dx * 1.3 * 0, .04, 0); g.add(glow);
+  g.position.set(o.x + dx * (wt - .05), y0, o.z + dz * (wt - .05)); g.rotation.y = Math.atan2(-dx, -dz); glow.position.z = 1.3;
+  G.scene.add(g);
+}
 function setLabel(m, text) { const mat = boardMat(text, m.color), u = m.sprite.userData; u.f.material = mat; u.bk.material = mat; m.text = text; }
 export function addMarker(o) {
   const m = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: o.color, transparent: true, opacity: .4, side: T.DoubleSide, depthWrite: false }));
@@ -128,6 +140,7 @@ export function addMarker(o) {
   let s;
   if (o.ring) { s = label(o.text, o.color); s.position.set(o.x, (o.y || 0) + 3.6, o.z); }
   else { s = o.indoor ? board(o.text, o.color, 1.6, .4) : board(o.text, o.color, o.car ? 5 : 2.6, o.car ? 1.25 : .75); placeSign(o, s); }
+  if (o.door) openDoor(o);
   m.visible = o.ring;
   G.scene.add(m, s); o.mesh = m; o.sprite = s; o.inside = false; markers.push(o); return o;
 }
