@@ -14,6 +14,7 @@ import { setupInteriors, enterRoom, updateRoomLight } from './interiors.js';
 import { gunMenu, bedMenu, GUNS, hasGun, fireRocket, throwGrenade, detonate, foodMenu, clinicMenu, deskMenu, armouryMenu, tryDoor, markers as MK, barMenu, clothMenu } from './shops.js';
 addEventListener('keydown', e => { if (e.code === 'KeyB' && !e.repeat && playing && !menuOpen) detonate(); });
 addEventListener('keydown', e => { if (e.code === 'KeyG' && !e.repeat && playing && !menuOpen && G.player && !G.player.car && !G.player.ride && !G.player.swim && !G.inside) throwGrenade(); });
+import { driverEye } from './actors.js';
 import { warmUpActors, initCarEnv, updateNPCs, updatePuffs, newCar, groundCar, aiWarp, streamWorld } from './actors.js';
 import { nodes, nearestNode } from './world.js';
 // ----- riding as a passenger: taxis take you where you ask, buses run their line -----
@@ -154,7 +155,7 @@ document.body.classList.toggle('mobile', MOBILE);
 /* ---------- input ---------- */
 const keys = {}, inp = { mx: 0, my: 0, run: false, jump: false, enter: false };
 let camYaw = -Math.PI / 2, camPitch = .3, camDist = 5, camIdle = 9, playing = false, locked = false, mouseDown = false;
-addEventListener('keydown', e => { if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (!keys[e.code] && (e.code === 'KeyF' || e.code === 'KeyE' || e.code === 'Enter')) inp.enter = true; if (!keys[e.code] && e.code === 'KeyQ') inp.punch = true; if (!keys[e.code] && (e.code === 'KeyR' || e.code === 'Tab') && playing && !menuOpen) { e.preventDefault(); switchWeapon(); } if (e.code === 'Escape' && menuOpen) closeMenu(); if (!keys[e.code] && e.code === 'KeyN' && playing && G.player.car) say('Radio: ' + radioNext(), 2.5); keys[e.code] = true; });
+addEventListener('keydown', e => { if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (!keys[e.code] && (e.code === 'KeyF' || e.code === 'KeyE' || e.code === 'Enter')) inp.enter = true; if (!keys[e.code] && e.code === 'KeyQ') inp.punch = true; if (!keys[e.code] && (e.code === 'KeyR' || e.code === 'Tab') && playing && !menuOpen) { e.preventDefault(); switchWeapon(); } if (e.code === 'Escape' && menuOpen) closeMenu(); if (!keys[e.code] && e.code === 'KeyC' && playing && !menuOpen && G.player.car) { G.inCar = !G.inCar; say(G.inCar ? 'In-car view (C for chase camera)' : 'Chase camera (C for in-car view)', 2); } if (!keys[e.code] && e.code === 'KeyN' && playing && G.player.car) say('Radio: ' + radioNext(), 2.5); keys[e.code] = true; });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 function look(dx, dy) { camYaw -= dx * .0032; camPitch = clamp(camPitch + dy * .0026, -.12, 1.25); camIdle = 0; }
@@ -564,6 +565,8 @@ function updateCamera(dt) {
   cpos.set(tgt.x + ox * camDist, Math.max(landHeight(tgt.x + ox * camDist, tgt.z + oz * camDist) + .4, tgt.y + oy * camDist), tgt.z + oz * camDist);
   if (G.inside && cpos.y > 2.9) cpos.y = 2.9;
   if (shake > .01) { cpos.x += (Math.random() - .5) * shake * .5; cpos.y += (Math.random() - .5) * shake * .4; cpos.z += (Math.random() - .5) * shake * .5; shake *= Math.pow(.004, dt); }
+  if (playing && p.car && G.inCar && !builderOpen) { const c = p.car, e = driverEye(c);   // inside the car: the driver's eyes, mouse looks around
+    if (e) { c.g.updateMatrixWorld(true); c.g.localToWorld(e); const pit = Math.max(-.5, Math.min(.5, (.3 - camPitch) * .9)), cp2 = Math.cos(pit); camera.position.copy(e); camera.lookAt(e.x + Math.sin(camYaw) * cp2, e.y + Math.sin(pit), e.z + Math.cos(camYaw) * cp2); if (c.occ && c.occ[0]) (c.occ[0].real ? c.occ[0].h : c.occ[0]).visible = false; return; } }
   camera.position.copy(cpos); camera.lookAt(tgt.x, tgt.y + .25, tgt.z);
 }
 

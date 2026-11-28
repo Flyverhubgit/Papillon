@@ -1127,6 +1127,8 @@ function syncOcc(c) {
   }
   const o0 = c.occ[0].real ? c.occ[0].h : c.occ[0], o1 = c.occ[1].real ? c.occ[1].h : c.occ[1]; o0.visible = drive; o1.visible = !!pass;
 }
+// where the driver's eyes are, in the car's own space (null for cars without a seat)
+export function driverEye(c) { const ge = GEO[c.type]; if (!ge || !ge.seat) return null; return new T.Vector3(ge.seat.x - .05, Math.min(ge.seat.top - .16, ge.seat.y + .72), -ge.seat.z); }
 // car paint: a glossy clear coat that mirrors the sky. The sky picture is drawn once (a sphere of colour with a sun in it) and shown on every car body
 let carEnv = null;
 export function initCarEnv(renderer) {
