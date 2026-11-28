@@ -381,7 +381,7 @@ export function newPerson(key, look) {
   const t = PT[key], m = SkeletonUtils.clone(t.scene), keep = {}, mats = {};
   if (key === 'pw') shapeWoman(m);
   if (t.x) {
-    const fh = t.ub ? rr(.93, 1.07) : 1, fw = t.ub ? rr(.94, 1.09) : 1;   // nobody is quite the same height and build as the next person
+    const fh = t.ub ? rr(.93, 1.07) : 1, fw = t.ub ? (t.ub.sex === 'm' ? rr(.80, .97) : rr(.93, 1.06)) : 1;   // the male base body is built like a superhero: slim him down   // nobody is quite the same height and build as the next person
     m.scale.set(t.k * fw, t.k * fh, t.k * fw); m.position.y = t.y * t.k * fh; const h = new T.Group(); h.add(m); G.scene.add(h);
     if (tint != null && t.ub) { const sp = t.ub, mat = ubBake(sp.ub, sp.sex, sp.skin, tint >= 0 ? tint : sp.shirt, look && look.bottom != null ? look.bottom : sp.pants, sp.shoe); m.traverse(o => { if (o.isSkinnedMesh && /^MI_Superhero/.test(o.name) === false && o.material === t.mat) o.material = mat; }); }   // a gang or prison top: the shirt is painted in that colour
     else if (tint != null && tint >= 0) { const mat = t.mat.clone(); mat.color.set(0xffffff).lerp(new T.Color(tint), .55); m.traverse(o => { if (o.isMesh) o.material = mat; }); }
