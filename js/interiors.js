@@ -53,15 +53,42 @@ function lieOn(n, x, y, z, dz) { playAnim(n, 'Idle'); n.h.rotation.order = 'YXZ'
 export function setupInteriors(scene, menus) {
   /* ----- gun shop ----- */
   {
-    const cx = 3000, cz = 0, w = 9, d = 8, g = room(scene, cx, cz, w, d, 0x6a6f63, 0x4a3f33);
-    const wood = M(0x6a4a2e), dark = M(0x23252a), steel = M(0x8a9098, { roughness: .4, metalness: .3 }), red = M(0xa3261e);
-    box(g, 6.2, 1.05, .8, wood, 0, .52, -1.6, true); box(g, 6.3, .06, .9, M(0x2a2c30), 0, 1.08, -1.6);
-    for (let i = 0; i < 3; i++) box(g, w - 1, .08, .45, wood, 0, 1.1 + i * .65, -d / 2 + .25);
-    for (let i = 0; i < 3; i++) for (let k = -5; k <= 5; k++) { if ((i + k) % 3 === 0) continue; box(g, .5, .12, .1, dark, k * .72, 1.24 + i * .65, -d / 2 + .25); box(g, .1, .2, .08, dark, k * .72 - .15, 1.14 + i * .65 + .02, -d / 2 + .25); }
-    for (const s of [-1, 1]) { box(g, .5, 1.9, 2.6, wood, s * (w / 2 - .3), .95, 1, true); for (let i = 0; i < 4; i++) box(g, .12, 1.3, .1, steel, s * (w / 2 - .6), 1.0, .1 + i * .6); }
-    box(g, 1.4, .5, .9, red, -2.2, 1.35, -1.6); box(g, .9, .3, .5, dark, 2.2, 1.25, -1.6);
-    const sign = new T.Mesh(new T.PlaneGeometry(4.2, .8), new T.MeshBasicMaterial({ map: text('ANCHOR ARMS', '#1b1d22', '#e0b85a') })); sign.position.set(cx, 2.85, cz - d / 2 + .02); scene.add(sign);
-    makeNPC('pm', { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', skin: 0xd9a074, hair: 0x3b2516, top: 0x2a2f3a, bottom: null }, cx, cz - 2.6, 0);
+    const cx = 3000, cz = 0, w = 9, d = 8, g = room(scene, cx, cz, w, d, 0x5d6358, 0x2f2a26);
+    const wood = M(0x6a4a2e), dark = M(0x1d1f23), steel = M(0x8a9098, { roughness: .35, metalness: .5 }), red = M(0xa3261e), peg = M(0x3b3f45), glass = M(0xbfe3f2, { transparent: true, opacity: .25, roughness: .05 }), velvet = M(0x6a1620);
+    const prop = (w2, h, d2, mat, x, y, z, ry) => { const m = new T.Mesh(new T.BoxGeometry(w2, h, d2), mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; m.receiveShadow = true; g.add(m); return m; };
+    const pipe = (r, len, mat, x, y, z, rz) => { const m = new T.Mesh(new T.CylinderGeometry(r, r, len, 8), mat); m.rotation.z = Math.PI / 2 + (rz || 0); m.position.set(x, y, z); g.add(m); return m; };
+    // a long gun lying flat on the wall, seen from the front: kind 0 rifle with scope, 1 shotgun, 2 assault rifle
+    const longGun = (x, y, z, kind, flip) => {
+      const k = flip ? -1 : 1, grp = new T.Group(); grp.position.set(x, y, z); grp.scale.x = k; g.add(grp);
+      const add = (w2, h, d2, mat, px, py) => { const m = new T.Mesh(new T.BoxGeometry(w2, h, d2), mat); m.position.set(px, py, 0); grp.add(m); };
+      const cy = (r, len, mat, px, py) => { const m = new T.Mesh(new T.CylinderGeometry(r, r, len, 8), mat); m.rotation.z = Math.PI / 2; m.position.set(px, py, 0); grp.add(m); };
+      if (kind === 1) { add(.36, .09, .05, wood, -.5, -.02); add(.34, .06, .05, dark, -.2, .02); cy(.016, .7, steel, .3, .03); cy(.014, .62, steel, .27, -.01); add(.32, .07, .05, wood, .15, -.03); }
+      else if (kind === 2) { add(.3, .08, .04, dark, -.5, -.03); add(.4, .08, .05, dark, -.15, .02); add(.06, .16, .03, dark, -.05, -.09); cy(.012, .5, steel, .3, .03); add(.3, .06, .05, dark, .1, .0); add(.1, .1, .03, dark, .0, .1); }
+      else { add(.34, .09, .05, wood, -.5, -.02); add(.34, .06, .05, dark, -.2, .02); add(.05, .12, .03, dark, -.1, -.07); cy(.011, .66, steel, .28, .03); cy(.018, .26, dark, -.12, .075); }
+    };
+    const pistol = (x, y, z, ry) => { const grp = new T.Group(); grp.position.set(x, y, z); grp.rotation.y = ry || 0; g.add(grp); const a = (w2, h, d2, mat, px, py) => { const m = new T.Mesh(new T.BoxGeometry(w2, h, d2), mat); m.position.set(px, py, 0); grp.add(m); }; a(.18, .04, .03, steel, 0, .05); a(.04, .1, .03, dark, -.06, -.01); a(.07, .03, .025, dark, .03, .01); };
+    // the wall of guns: a pegboard with long guns on rails, three rows
+    prop(w - .4, 2.3, .06, peg, 0, 1.85, -d / 2 + .05);
+    for (let r = 0; r < 4; r++) { const y = 1.0 + r * .55; prop(w - .6, .04, .06, wood, 0, y - .1, -d / 2 + .12); for (let k = 0; k < 4; k++) longGun(-3.1 + k * 2.05, y, -d / 2 + .13, (r + k) % 3, k % 2); }
+    // the long counter: a glass case full of handguns on red velvet, a till on top
+    prop(6.2, .9, .8, wood, 0, .45, -1.6).castShadow = true; addBox(cx - 3.1, cz - 2.0, cx + 3.1, cz - 1.2, 3);
+    prop(6.3, .05, .9, M(0x2a2c30), 0, .93, -1.6); prop(5.4, .3, .7, glass, -.3, 1.1, -1.6); prop(5.2, .02, .6, velvet, -.3, .96, -1.6);
+    for (let k = 0; k < 8; k++) pistol(-2.6 + k * .68, 1.0, -1.6, (k % 2) * .25);
+    prop(.5, .3, .4, M(0x3a3d44), 2.7, 1.1, -1.6); prop(.35, .12, .3, M(0x7ad6a0, { emissive: 0x7ad6a0, emissiveIntensity: .6 }), 2.7, 1.28, -1.62);
+    // ammo shelves on both side walls: boxes in red, yellow and green
+    for (const sd of [-1, 1]) {
+      const wx = sd * (w / 2 - .3); prop(.45, 2.0, 3.0, M(0x4a4d53), wx, 1.0, 1.3).castShadow = true; addBox(cx + wx - .25, cz - .2, cx + wx + .25, cz + 2.8, 3);
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 6; k++) prop(.14, .1, .2, M([0xc9a227, 0xb3362e, 0x3f7a4a, 0x2f5f9f][(r + k + (sd > 0 ? 1 : 0)) % 4]), wx - sd * .2, .45 + r * .42, .2 + k * .45);
+    }
+    // paper targets pinned to the walls, a licence on the wall, a camera in the corner, a safe
+    const targetTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'); c.fillStyle = '#efe9d6'; c.fillRect(0, 0, 128, 128); [[60, '#1b1d22'], [46, '#efe9d6'], [32, '#b3362e'], [18, '#efe9d6'], [8, '#b3362e']].forEach(([r, col]) => { c.fillStyle = col; c.beginPath(); c.arc(64, 64, r, 0, 7); c.fill(); }); c.fillStyle = '#1b1d22'; for (const [x, y] of [[64, 60], [70, 66], [58, 70], [66, 52]]) { c.beginPath(); c.arc(x, y, 2, 0, 7); c.fill(); } const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; return t; })();
+    for (const [z0, y0] of [[2.9, 1.9], [1.3, 2.2]]) { const tg = new T.Mesh(new T.PlaneGeometry(.7, .7), new T.MeshBasicMaterial({ map: targetTex })); tg.position.set(cx + w / 2 - .02, y0, cz + z0 - 2); tg.rotation.y = -Math.PI / 2; scene.add(tg); }
+    const lic = new T.Mesh(new T.PlaneGeometry(1.2, .8), new T.MeshBasicMaterial({ map: text('LICENSED DEALER', '#efe9d6', '#2a2f3a') })); lic.position.set(cx - w / 2 + .02, 2.1, cz + .2); lic.rotation.y = Math.PI / 2; scene.add(lic);
+    prop(.9, 1.2, .8, M(0x2f3a30, { metalness: .4, roughness: .5 }), w / 2 - .7, .6, -d / 2 + .6, 0).castShadow = true; addBox(cx + w / 2 - 1.15, cz - d / 2 + .2, cx + w / 2 - .25, cz - d / 2 + 1.0, 3);   // the safe
+    prop(.3, .2, .2, dark, -w / 2 + .5, 3.0, d / 2 - .4); pipe(.05, .2, dark, -w / 2 + .6, 3.0, d / 2 - .55);
+    const sign = new T.Mesh(new T.PlaneGeometry(4.2, .8), new T.MeshBasicMaterial({ map: text('ANCHOR ARMS', '#1b1d22', '#e0b85a') })); sign.position.set(cx, 2.85, cz - d / 2 + .1); scene.add(sign);
+    makeNPC('pm', { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', skin: 0xd9a074, hair: 0x3b2516, top: 0x4a5a3a, bottom: 0x2a2a2e }, cx, cz - 2.6, 0);   // the clerk in an olive shirt
+    makeNPC('pm', { head: 'Suit_Head', body: 'Suit_Body', legs: 'Suit_Legs', feet: 'Suit_Feet', skin: 0x8d5524, hair: 0x101010, top: 0x7a2f1f, bottom: 0x2f3a4a }, cx - 2.6, cz + 1.2, Math.PI / 2);   // a customer looking at the rifles
     const mk = [
       addMarker({ x: cx, z: cz - .4, type: 'in', icon: '', text: 'BUY', color: 0xc9423a, indoor: true, onEnter: menus.gun }),
       addMarker({ x: cx, z: cz + d / 2 - 1, type: 'in', icon: '', text: 'EXIT', color: 0x4a5568, indoor: true, onEnter: leaveRoom })
