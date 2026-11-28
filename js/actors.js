@@ -423,6 +423,7 @@ export function newPerson(key, look) {
 // switch a person to a named animation, cross-fading from the current one
 function anim(p, name, once, ts) {
   if (p.cur === name) { if (ts) p.acts[name].timeScale = ts; return; }
+  if (name === 'Death' && p.clips.Death && !p.clips.Death._cut) { const c = p.clips.Death, fr = Math.round(c.duration * 30) - 3; const sc = T.AnimationUtils.subclip(c, 'Death', 0, fr, 30); sc._cut = true; p.clips.Death = sc; }   // the last keyframe of the clip is the standing pose: stop just before it, so the body stays lying
   let a = p.acts[name]; if (!a) { if (!p.clips[name]) return; a = p.acts[name] = p.mixer.clipAction(p.clips[name]); }
   a.reset(); a.timeScale = ts || 1; a.setLoop(once ? T.LoopOnce : T.LoopRepeat, Infinity); a.clampWhenFinished = !!once; if (!once && p.clips[name]) a.time = Math.random() * p.clips[name].duration; a.fadeIn(.22).play();   // looping clips start at a random point, so a crowd doesn't breathe in step
   if (p.cur && p.acts[p.cur]) p.acts[p.cur].fadeOut(.22);
