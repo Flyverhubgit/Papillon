@@ -237,6 +237,7 @@ export function setupInteriors(scene, menus) {
     ];
     G.rooms.flat = { title: 'Home', spawn: { x: cx - 1.2, z: cz + 1.2 }, markers: mk };
   }
+  dressRooms(scene);
   /* ----- the old missile silo: a hide-out under the desert ----- */
   {
     const cx = 3000, cz = 600, w = 13, d = 9, g = room(scene, cx, cz, w, d, 0x5d6268, 0x34373b);
@@ -256,6 +257,76 @@ export function setupInteriors(scene, menus) {
     ];
     G.rooms.silo = { title: 'The silo: your hide-out', spawn: { x: cx, z: cz + 2.2 }, markers: mk };
   }
+}
+
+// ---- extra dressing for the rooms: screens, papers, posters, plants, lamps (small props that make a room look lived in) ----
+const pM = (c, o) => new T.MeshStandardMaterial(Object.assign({ color: c, roughness: .8 }, o || {}));
+function dressRooms(scene) {
+  const mk = (cx, cz) => {
+    const g = new T.Group(); g.position.set(cx, 0, cz); scene.add(g);
+    const p = (w, h, d, mat, x, y, z, ry) => { const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; g.add(m); return m; };
+    const cyl = (r, h, mat, x, y, z) => { const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 12), mat); m.position.set(x, y, z); g.add(m); return m; };
+    const pl = (map, w, h, x, y, z, ry) => { const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map })); m.position.set(x, y, z); m.rotation.y = ry || 0; g.add(m); return m; };
+    const screen = (x, y, z, ry) => { p(.5, .34, .04, pM(0x1c1d21), x, y, z, ry); const s = p(.45, .29, .01, pM(0x7ec4f0, { emissive: 0x4a9ad0, emissiveIntensity: .9 }), x, y, z + .025 * Math.cos(ry || 0), ry); p(.06, .14, .06, pM(0x1c1d21), x, y - .22, z); p(.2, .02, .12, pM(0x2a2b30), x, y - .3, z + .12 * Math.cos(ry || 0)); };
+    const plant = (x, z, hgt) => { cyl(.22, .4, pM(0x8a5a3a), x, .2, z); const f = new T.Mesh(new T.IcosahedronGeometry(.34 * (hgt || 1), 1), pM(0x3f7a3f)); f.position.set(x, .75 * (hgt || 1) + .1, z); g.add(f); const f2 = f.clone(); f2.scale.set(.7, .8, .7); f2.position.set(x + .1, .55, z - .08); g.add(f2); };
+    const clock = (x, y, z, ry) => { const c = cyl(.22, .04, pM(0xf2efe6), x, y, z); c.rotation.x = Math.PI / 2; c.rotation.z = ry || 0; };
+    const lamp = (x, z, col) => { cyl(.015, .7, pM(0x2a2b30), x, 3.0, z); const sh = new T.Mesh(new T.CylinderGeometry(.12, .3, .26, 12, 1, true), pM(col || 0x2a2b30, { side: T.DoubleSide })); sh.position.set(x, 2.55, z); g.add(sh); p(.14, .04, .14, pM(0xfff2c8, { emissive: 0xffe9b0, emissiveIntensity: 1.4 }), x, 2.5, z); };
+    return { g, p, cyl, pl, screen, plant, clock, lamp };
+  };
+  const tex = (t, bg, fg, h) => { const c = document.createElement('canvas'); c.width = 256; c.height = h || 128; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 256, c.height); x.fillStyle = fg; x.font = 'bold 30px Georgia,serif'; x.textAlign = 'center'; t.split('\n').forEach((ln, i, a) => x.fillText(ln, 128, c.height / 2 + (i - (a.length - 1) / 2) * 36 + 10)); const m = new T.CanvasTexture(c); m.colorSpace = T.SRGBColorSpace; return m; };
+  // ---- police station (cz 240): screens and papers on the desk, wanted posters, workstations, filing cabinets, flag, clock
+  { const r = mk(3000, 240), { p, screen, plant, clock, pl } = r;
+    screen(-1.6, 1.42, -1.62, 0); screen(1.6, 1.42, -1.62, 0); screen(.1, 1.42, -2.0, 0);
+    for (const x of [-2.6, -.6, .9, 2.6]) { p(.3, .02, .22, pM(0xf2efe6), x, 1.17, -1.75); p(.28, .02, .2, pM(0xe8e2d0), x + .03, 1.19, -1.77, .2); }
+    p(.14, .12, .14, pM(0x2a3f8a), -.4, 1.2, -1.95); p(.2, .1, .1, pM(0x2a2b30), 2.2, 1.18, -1.75);   // a lamp base and a radio
+    for (let k = 0; k < 4; k++) pl(tex(['WANTED\n$ 5000', 'WANTED\n$ 12000', 'MISSING', 'WANTED\n$ 800'][k], k === 2 ? '#d9dde4' : '#e8d8a8', '#2a1a10', 128), .55, .7, -4.7 + k * .62, 2.0, -3.93, 0);
+    p(2.7, 1.1, .05, pM(0x6a4a2e), -3.45, 2.0, -3.96);
+    pl(tex('PAPILLON\nPOLICE', '#17409a', '#ffffff', 128), .9, .6, 3.4, 2.35, -3.95, 0); clock(-1.2, 2.55, -3.94, 0);
+    for (const x of [-4.8, -4.2, -3.6]) { p(.5, 1.4, .55, pM(0x8a9098, { metalness: .4, roughness: .5 }), x, .7, -3.6); for (let k = 0; k < 3; k++) p(.4, .02, .03, pM(0x2a2c30), x, .35 + k * .4, -3.31); }
+    p(1.5, .06, .7, pM(0x6a4a2e), 3.9, .74, -3.4); p(.06, .74, .6, pM(0x2a2c30), 3.2, .37, -3.4); p(.06, .74, .6, pM(0x2a2c30), 4.6, .37, -3.4); screen(3.9, 1.0, -3.55, 0);
+    plant(-4.6, 3.3); p(.4, 1.0, .4, pM(0xd8e6f2, { transparent: true, opacity: .7 }), 4.6, .5, 3.35); }
+  // ---- hospital (cz 180): curtains, monitors, IV stands, reception computer, first-aid cabinet, wheelchair
+  { const r = mk(3000, 180), { p, cyl, screen, plant, clock, pl } = r;
+    for (const bz of [-1.6, 1.3]) { p(.05, .45, .6, pM(0x1c1d21), -4.78, 1.2, bz - .6); p(.04, .36, .5, pM(0x6aff9a, { emissive: 0x3acf6a, emissiveIntensity: 1 }), -4.75, 1.2, bz - .6); cyl(.015, 1.9, pM(0xc9ced4), -2.6, .95, bz - .9); p(.12, .2, .04, pM(0xcfe6f2, { transparent: true, opacity: .8 }), -2.6, 1.8, bz - .9); }
+    p(.04, 1.9, 2.4, pM(0x7fc4c4, { transparent: true, opacity: .55 }), -3.7, 1.15, -.15, Math.PI / 2);
+    screen(2.4, 1.42, -2.0, 0); p(.1, .1, .1, pM(0xd9463c), 1.2, 1.15, -1.8);
+    pl(tex('RECEPTION', '#3f9a9a', '#ffffff', 64), 1.6, .4, 1.8, 2.3, -3.94, 0); clock(-.9, 2.5, -3.94, 0);
+    p(.8, .9, .3, pM(0xf6f6f2), -1.3, 1.5, -3.8); p(.3, .06, .02, pM(0xd9463c), -1.3, 1.5, -3.64); p(.06, .3, .02, pM(0xd9463c), -1.3, 1.5, -3.64);   // first-aid cabinet
+    cyl(.28, .05, pM(0x2a2c30), 4.2, .3, -1.6).rotation.z = Math.PI / 2; p(.5, .06, .5, pM(0x1f3f8a), 4.2, .5, -1.6); p(.5, .5, .05, pM(0x1f3f8a), 4.45, .75, -1.6);   // wheelchair
+    plant(4.5, -3.3); plant(-4.6, 3.3, 1.2);
+    p(.3, 1.9, .02, pM(0x6fc0c0), 0, .02, 1.0, 0).scale.set(1, .01, 1); p(.3, .01, 4.6, pM(0x6fc0c0), 0, .01, 1.3); }
+  // ---- bank (cz 360): screens at every window, brass grille, ATMs, cash stacks, pillars, pendant lamps, portraits
+  { const r = mk(3000, 360), { p, screen, plant, lamp, pl, clock } = r;
+    for (const k of [-4.6, -2, .6]) screen(k, 1.4, -2.1, 0);
+    for (let k = 0; k < 15; k++) p(.025, .9, .025, pM(0xc9a23a, { metalness: .6, roughness: .3 }), -5.6 + k * .5, 1.65, -2.3); p(7.4, .05, .05, pM(0xc9a23a, { metalness: .6, roughness: .3 }), -2, 2.12, -2.3);
+    for (const z of [-2.8, -1.5]) { p(.5, 1.9, .7, pM(0x2f3a45, { metalness: .3, roughness: .5 }), -5.7, .95, z); p(.04, .4, .5, pM(0x7ad6a0, { emissive: 0x3aa070, emissiveIntensity: 1 }), -5.43, 1.4, z); }
+    for (let k = 0; k < 5; k++) for (let j = 0; j < 3; j++) p(.45, .14 + j * .02, .3, pM(0x4f8a56), 2.4 + (k % 2) * .5, .1 + j * .17, -3.5 + (k > 1 ? .6 : 0) * 0, 0).visible = k < 2;
+    for (const x of [-1.2, 1.4]) { r.cyl(.28, 3.3, pM(0xe4dfd2), x + 4.2, 1.65, 1.2); }
+    for (const x of [-3, 0, 3]) lamp(x, 0.6, 0xc9a23a);
+    for (let k = 0; k < 3; k++) pl(tex(['FOUNDER', 'MAYOR', 'GOVERNOR'][k], '#3a2a1a', '#e9d9a0', 128), .6, .8, -6 + .02, 2.0, -2.6 + k * 1.9, Math.PI / 2);
+    clock(-5.4, 2.7, -4.44, 0); plant(5.4, 3.7, 1.3); plant(-5.4, 3.7); }
+  // ---- cafe (cz 120): menu board, pendant lamps, cups, plants on the tables, pastries
+  { const r = mk(3000, 120), { p, cyl, plant, lamp, pl } = r;
+    pl(tex('MENU\nCoffee  3\nCroissant  4\nTea  2', '#232a26', '#f2f2ee', 192), 1.5, 1.2, 3.4, 2.1, -3.94, 0);
+    for (const [x, z] of [[3, .5], [3, 2.6], [-3.2, 1.6]]) { lamp(x, z, 0xb3362e); cyl(.04, .06, pM(0xf2efe6), x - .2, .82, z + .1); cyl(.07, .05, pM(0x3f7a3f), x + .2, .83, z - .15); }
+    for (let k = 0; k < 6; k++) cyl(.05, .07, pM(0xf2efe6), -3.5 + k * .35, 1.15, -1.9);
+    for (let k = 0; k < 5; k++) { const c = cyl(.12, .04, pM(0xd9a066), .0 + k * .2, 1.25, -2.0); c.scale.set(1, 1, 1); }
+    plant(-4.6, 3.3); plant(4.6, 3.3, 1.2);
+    for (let k = 0; k < 5; k++) { cyl(.16, .05, pM(0xb3362e), -3.7 + k * .9, .72, -1.3); cyl(.025, .7, pM(0x2a2c30), -3.7 + k * .9, .36, -1.3); } }
+  // ---- bar (cz 420): taps, neon, glasses on the counter, bottle mirror
+  { const r = mk(3000, 420), { p, cyl, pl, plant } = r;
+    p(8.6, 1.5, .03, pM(0xc9d6e0, { metalness: .8, roughness: .1 }), -.3, 2.05, -3.93);
+    for (let k = 0; k < 3; k++) { cyl(.03, .3, pM(0xc9a35a, { metalness: .6, roughness: .3 }), -3 + k * .45, 1.3, -2.15); p(.04, .04, .14, pM(0xc9a35a), -3 + k * .45, 1.42, -2.05); }
+    for (let k = 0; k < 7; k++) cyl(.04, .1, pM(0xdfe6ee, { transparent: true, opacity: .6 }), -3.6 + k * .55, 1.2, -1.75);
+    const neon = new T.Mesh(new T.PlaneGeometry(1.4, .5), new T.MeshBasicMaterial({ map: tex('OPEN', '#14090a', '#ff4a5a', 64) })); neon.position.set(3.8, 2.9, -3.94); r.g.add(neon);
+    const neon2 = new T.Mesh(new T.PlaneGeometry(1.4, .5), new T.MeshBasicMaterial({ map: tex('COLD BEER', '#14090a', '#4ad6ff', 64) })); neon2.position.set(-4.6, 2.5, -3.94); r.g.add(neon2);
+    plant(4.8, 3.3); }
+  // ---- clothes shop (cz 480): mannequins in the window corner, a shoe wall, hangers
+  { const r = mk(3000, 480), { p, cyl, plant, pl } = r;
+    for (const [x, z, col] of [[-4.2, 2.8, 0xb3362e], [-3.4, 3.0, 0x2f5f9f], [-2.6, 2.8, 0xe0b23a]]) { cyl(.2, .05, pM(0x2a2c30), x, .03, z); cyl(.02, .8, pM(0x2a2c30), x, .45, z); p(.34, .5, .2, pM(col), x, 1.1, z); const h = new T.Mesh(new T.SphereGeometry(.1, 10, 8), pM(0xe8d9c4)); h.position.set(x, 1.5, z); r.g.add(h); p(.2, .6, .16, pM(0x30343f), x, .55, z).visible = false; }
+    for (let k = 0; k < 6; k++) for (let j = 0; j < 3; j++) p(.24, .09, .1, pM([0xf2f2ee, 0x30343f, 0xb3362e, 0x2f5f9f, 0xd98a1f][(k + j) % 5]), -4.9, .6 + j * .45, -1.6 + k * .32, 0);
+    p(.05, 1.6, 2.2, pM(0x6a4a2e), -4.97, 1.0, -.7); plant(4.6, 3.3, 1.2);
+    pl(tex('NEW\nSEASON', '#f2ece0', '#7a3f8f', 128), 1.2, .8, 3.0, 2.3, -3.95, 0); }
 }
 function text(t, bg, fg) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d');
