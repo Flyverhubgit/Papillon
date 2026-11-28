@@ -153,9 +153,13 @@ function nearUse() {
 }
 export function tryDoor() { const m = nearUse(); if (!m) return false; m.onEnter(m); return true; }
 export function updateMarkers(dt) {
-  const p = G.player, px = p.car ? p.car.x : p.x, pz = p.car ? p.car.z : p.z;
+  const p = G.player, px = p.car ? p.car.x : p.x, pz = p.car ? p.car.z : p.z; G.doorCd = (G.doorCd || 0) - dt;
   for (const m of markers) {
     const d = Math.hypot(m.x - px, m.z - pz), vis = d < 120; m.sprite.visible = vis; m.mesh.visible = vis && m.ring; if (!vis) { m.inside = false; continue; }
+    if (m.use && ((m.door && (m.type !== 'flat' || G.inv.flats.includes(m.id))) || (m.indoor && m.text === 'EXIT'))) {   // doors stand open: walk in, walk out, no E needed
+      const ins = !p.car && !p.ride && !p.swim && !G.menuOpen && (G.doorCd || 0) <= 0 && d < (m.door ? 1.25 : 1.15) && Math.abs((m.y || 0) - p.y) < 2.5;
+      if (ins && !m.inside) { m.inside = true; G.doorCd = 1.2; m.onEnter(m); } else if (!ins && d > 2.3) m.inside = false;
+    }
     if (m.use) continue;
     if (m.ring) { m.mesh.rotation.y += dt * .8; m.mesh.material.opacity = .32 + .12 * Math.sin(G.time * 3); }
     const ins = m.car ? (!!p.car && d < 2.9 && p.car.v < 7) : (!p.car && !p.ride && d < 1.5);

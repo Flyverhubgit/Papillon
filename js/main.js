@@ -69,6 +69,7 @@ import { updateCops, clearCops } from './cops.js';
 import { setupMissions, updateMissions, startTaxiShift, startParamedic, missionInfo } from './missions.js';
 import { setGps, updateGps } from './gps.js';
 import { updateNature, warmNature } from './nature.js';
+import { dressPlaces } from './decor.js';
 import { updateFx, updateBreaks } from './fx.js';
 import { updateDemolish, updateWater, updateBrigade, updateBlastFx } from './demolish.js';
 import { updateExtras } from './extras.js';
@@ -664,7 +665,7 @@ async function boot() {
   const saved = loadGame(); applySave(saved); if (!saved) G.money = 300;
   prepPeople(models);
   G.look = cleanLook(saved && saved.look ? saved.look : (saved ? defaultLook(saved.sex) : null));
-  makePlayer(G.look); setupShops(); setupMissions(); setupCraft(scene); setupTrain(scene);
+  makePlayer(G.look); setupShops(); dressPlaces(); setupMissions(); setupCraft(scene); setupTrain(scene);
   // if your account holds a newer save than this device (you played somewhere else), take that one
   initCloud().then(remote => {
     const local = loadGame(); if (!remote || (remote.at || 0) <= ((local && local.at) || 0)) return;
