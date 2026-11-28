@@ -1,7 +1,7 @@
 // Papillon - problem report. Press F2 (or use the Statistics menu) when something looks wrong:
 // the game writes down what it knows about itself at that moment, so the problem can be found without guessing.
 import { G, MOBILE } from './world.js';
-export const BUILD = '2026-11-25 e';
+export const BUILD = '2026-11-28 a';
 
 // things that went wrong since the game started (kept short)
 const errs = [], note = (kind, t) => { if (errs.length < 40) errs.push(Math.round(performance.now() / 1000) + 's ' + kind + ': ' + String(t).slice(0, 300)); };

@@ -68,7 +68,7 @@ import { setupEscape, updateEscape } from './escape.js';
 import { updateCops, clearCops } from './cops.js';
 import { setupMissions, updateMissions, startTaxiShift, startParamedic, missionInfo } from './missions.js';
 import { setGps, updateGps } from './gps.js';
-import { updateNature } from './nature.js';
+import { updateNature, warmNature } from './nature.js';
 import { updateFx, updateBreaks } from './fx.js';
 import { updateDemolish, updateWater, updateBrigade, updateBlastFx } from './demolish.js';
 import { updateExtras } from './extras.js';
@@ -679,13 +679,13 @@ async function boot() {
   status.textContent = 'Preparing the graphics'; await new Promise(r => setTimeout(r, 30));
   try {   // draw everything once, even what is out of view, so nothing has to be sent to the graphics card in the middle of the game
     sim(.001);   // one step first: the fire, flash and headlamp lights are created in it, and they must exist before the programs are made
-    const undo = warmUpActors(), cul = [], hid = []; scene.traverse(o => { if (o.frustumCulled) { cul.push(o); o.frustumCulled = false; } });
+    const undo = warmUpActors(), undoNat = warmNature(), cul = [], hid = []; scene.traverse(o => { if (o.frustumCulled) { cul.push(o); o.frustumCulled = false; } });
     for (const c of G.cells) if (!c.m.visible) { hid.push(c.m); c.m.visible = true; }   // the far parts of the city too: they are hidden until you get near, and would freeze the game when they first show
     if (fancy && !composer) { try { buildComposer(); } catch (e) { fancy = false; } }
     const t = performance.now(); renderer.info.reset(); renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);   // the plain way of drawing (used when fine graphics are off, or get switched off)
     if (fancy && composer) { renderer.shadowMap.needsUpdate = true; composer.render(.016); }
-    for (const o of cul) o.frustumCulled = true; for (const o of hid) o.visible = false; undo(); G.warmMs = Math.round(performance.now() - t);
+    for (const o of cul) o.frustumCulled = true; for (const o of hid) o.visible = false; undo(); undoNat(); G.warmMs = Math.round(performance.now() - t);
   } catch (e) { console.warn('warm-up failed', e); }
   bar.style.width = '100%'; ready = true; G.ready = true;
   status.textContent = ''; $('load').style.display = 'none'; $('choose').style.display = 'flex';

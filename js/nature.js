@@ -43,6 +43,8 @@ export function buildNature(scene, nat, yAt, circle) {
   }
 }
 // hide the squares of land that are far from the player (call often; it only works twice a second)
+// start-up warm-up: show every cell once so their shapes and textures are sent to the graphics card then, not in the middle of the game
+export function warmNature() { const was = cells.map(c => c.visible); for (const c of cells) c.visible = true; return () => cells.forEach((c, i) => { c.visible = was[i]; }); }
 export function updateNature(px, pz, dt, limB, limS) {
   tick -= dt; if (tick > 0) return; tick = .5;
   for (const c of cells) { const d = Math.hypot(c.userData.x - px, c.userData.z - pz), lim = c.userData.small ? (limS === undefined ? 120 : limS) : (limB || 380); c.visible = lim > 0 && d < lim + CELL; }
